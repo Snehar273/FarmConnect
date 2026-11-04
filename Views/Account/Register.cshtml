@@ -1,0 +1,26 @@
+@model RegisterVm
+@{ ViewData["Title"] = "Register"; }
+<div class="auth reveal">
+  <div class="auth-side"><h2>Grow with FarmConnect.</h2><p>Farmers list produce. Buyers order fresh. Everyone sees fair prices.</p><div class="big">🥕</div></div>
+  <form class="auth-form" method="post" asp-action="Register">
+    <h2>Create account</h2>
+    <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+    <div class="role-pick">
+      <label><input type="radio" asp-for="Role" value="Farmer" /><span>🧑‍🌾 I'm a Farmer</span></label>
+      <label><input type="radio" asp-for="Role" value="Buyer" /><span>🛒 I'm a Buyer</span></label>
+    </div>
+    <span asp-validation-for="Role" class="text-danger small"></span>
+    <label asp-for="FullName" class="mt-3"></label><input asp-for="FullName" class="form-control" /><span asp-validation-for="FullName" class="text-danger small"></span>
+    <div class="row g-3 mt-0">
+      <div class="col-md-6"><label asp-for="Email"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email" class="text-danger small"></span></div>
+      <div class="col-md-6"><label asp-for="Mobile"></label><input asp-for="Mobile" class="form-control" inputmode="numeric" /><span asp-validation-for="Mobile" class="text-danger small"></span></div>
+      <div class="col-md-6"><label asp-for="Password"></label><input asp-for="Password" class="form-control" /><span asp-validation-for="Password" class="text-danger small"></span></div>
+      <div class="col-md-6"><label asp-for="ConfirmPassword"></label><input asp-for="ConfirmPassword" class="form-control" /><span asp-validation-for="ConfirmPassword" class="text-danger small"></span></div>
+    </div>
+    <label asp-for="Location" class="mt-3"></label><input asp-for="Location" class="form-control" placeholder="e.g. Erode" />
+    <small class="text-muted">Min 8 chars with upper, lower, digit and symbol.</small>
+    <button class="btn-fc w-100 mt-3">CREATE ACCOUNT</button>
+    <p class="mt-3 small text-center">Already registered? <a asp-action="Login">Login</a></p>
+  </form>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="100%">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1"><stop offset="0" stop-color="#faf7f0"/><stop offset="1" stop-color="#e3ecd6"/></linearGradient>
+    <linearGradient id="tx" x1="0" x2="1"><stop offset="0" stop-color="#2d4a2b"><animate attributeName="stop-color" values="#2d4a2b;#c2994a;#2d4a2b" dur="6s" repeatCount="indefinite"/></stop><stop offset="1" stop-color="#5f9a54"><animate attributeName="stop-color" values="#5f9a54;#2d4a2b;#5f9a54" dur="6s" repeatCount="indefinite"/></stop></linearGradient>
+  </defs>
+  <rect width="1200" height="320" rx="24" fill="url(#bg)"/>
+  <g font-size="54"><text x="80" y="70">🌾<animateTransform attributeName="transform" type="translate" values="0 0;0 -14;0 0" dur="3s" repeatCount="indefinite"/></text>
+    <text x="1040" y="90">🍅<animateTransform attributeName="transform" type="translate" values="0 0;0 -18;0 0" dur="3.6s" repeatCount="indefinite"/></text>
+    <text x="960" y="270">🥕<animateTransform attributeName="transform" type="translate" values="0 0;0 -12;0 0" dur="2.8s" repeatCount="indefinite"/></text>
+    <text x="130" y="275">🥬<animateTransform attributeName="transform" type="translate" values="0 0;0 -16;0 0" dur="3.3s" repeatCount="indefinite"/></text></g>
+  <text x="600" y="150" text-anchor="middle" font-family="Georgia,serif" font-size="88" font-weight="700" fill="url(#tx)" letter-spacing="4">FarmConnect
+    <animate attributeName="opacity" values="0;1" dur="1.4s" fill="freeze"/></text>
+  <text x="600" y="205" text-anchor="middle" font-family="Georgia,serif" font-size="26" fill="#6b7466" letter-spacing="6">STRAIGHT FROM THE FARM. NATURALLY YOURS.</text>
+  <line x1="420" y1="235" x2="780" y2="235" stroke="#c2994a" stroke-width="3" stroke-linecap="round" stroke-dasharray="360" stroke-dashoffset="360"><animate attributeName="stroke-dashoffset" values="360;0;360" dur="5s" repeatCount="indefinite"/></line>
+  <text x="600" y="280" text-anchor="middle" font-family="monospace" font-size="18" fill="#2d4a2b">ASP.NET Core MVC · EF Core · SQL Server · Identity · Chart.js</text>
+</svg>

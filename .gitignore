@@ -1,0 +1,36 @@
+# .NET build files
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Development configuration containing secrets
+appsettings.Development.json
+secrets.json
+
+# Publish output
+publish/
+artifacts/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+
+
+wwwroot/uploads/*
+!wwwroot/uploads/.gitkeep

@@ -1,0 +1,33 @@
+@model EarningsVm
+@{ ViewData["Title"] = "Earnings"; }
+<h1 class="page-h">Earnings Report</h1>
+<div class="pills reveal">
+  @foreach (var p in new[] { "daily", "weekly", "monthly" }) { <a class="@(Model.Period == p ? "on" : "")" asp-action="Index" asp-route-period="@p">@(char.ToUpper(p[0]) + p.Substring(1))</a> }
+  <form method="get" class="d-inline-flex gap-2 align-items-center"><input type="hidden" name="period" value="custom" />
+    <input type="date" name="fromDate" class="form-control form-control-sm" value="@Model.From.ToString("yyyy-MM-dd")" /><input type="date" name="toDate" class="form-control form-control-sm" value="@Model.To.ToString("yyyy-MM-dd")" /><button class="btn-sm-fc">Custom range</button></form>
+</div>
+<p class="small text-muted">Showing completed orders from @Model.From.ToString("dd MMM yyyy") to @Model.To.ToString("dd MMM yyyy"). Pending, rejected and cancelled orders are never counted.</p>
+<div class="stat-row">
+  <div class="stat reveal"><small>Completed sales (gross)</small><b>₹@Model.Gross.ToString("N2")</b></div>
+  <div class="stat reveal"><small>Quantity sold</small><b>@Model.Qty.ToString("0.##")</b></div>
+  <div class="stat reveal"><small>Completed orders</small><b>@Model.Orders.Count</b></div>
+  <div class="stat reveal"><small>Recorded selling costs</small><b>₹@Model.Costs.ToString("N2")</b></div>
+  <div class="stat reveal hl"><small>Net proceeds</small><b>₹@Model.Net.ToString("N2")</b></div>
+</div>
+<p class="small text-muted">Net proceeds = gross revenue − recorded selling costs. This is not your actual farm profit, which also needs seed, fertiliser, labour and irrigation costs.</p>
+<div class="table-wrap reveal"><table class="fc-table"><thead><tr><th>Order</th><th>Completed</th><th>Buyer</th><th>Item</th><th>Qty</th><th>Agreed price</th><th>Revenue</th></tr></thead><tbody>
+@foreach (var o in Model.Orders) { foreach (var i in o.Items) { <tr><td><b>@o.OrderNo</b></td><td>@o.CompletedAt?.ToString("dd MMM yyyy")</td><td>@o.Buyer.FullName</td><td>@i.ProduceName</td><td>@i.Quantity.ToString("0.##") @i.Unit</td><td>₹@i.AgreedUnitPrice.ToString("0.##")</td><td>₹@i.LineTotal.ToString("N2")</td></tr> } }
+@if (!Model.Orders.Any()) { <tr><td colspan="7" class="text-center text-muted py-4">No completed orders in this period.</td></tr> }
+</tbody></table></div>
+@if (Model.Orders.Any())
+{
+  <div class="panel reveal mt-4"><h3>Record a selling cost</h3>
+    <form method="post" asp-action="AddExpense" class="filters">
+      <select name="orderId" class="form-select">@foreach (var o in Model.Orders) { <option value="@o.Id">@o.OrderNo</option> }</select>
+      <input name="description" class="form-control" placeholder="e.g. Transport, packing" maxlength="200" required />
+      <input name="amount" type="number" step="0.01" min="0.01" class="form-control" placeholder="Amount ₹" required />
+      <button class="btn-fc">ADD COST</button>
+    </form>
+    @foreach (var x in Model.Expenses) { <div class="small mt-2">• @x.ExpenseDate.ToString("dd MMM") — @x.Description: <b>₹@x.Amount.ToString("N2")</b></div> }
+  </div>
+}

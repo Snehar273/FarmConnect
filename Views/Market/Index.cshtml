@@ -1,0 +1,360 @@
+@model List<Listing>
+
+@functions {
+    static string Qs(IQueryCollection q, string set, string val)
+    {
+        var l = q
+            .Where(x =>
+                x.Key != set &&
+                !string.IsNullOrWhiteSpace(x.Value.ToString()))
+            .Select(x =>
+                x.Key + "=" + Uri.EscapeDataString(x.Value.ToString()))
+            .ToList();
+
+        if (val != null)
+        {
+            l.Add(set + "=" + Uri.EscapeDataString(val));
+        }
+
+        return "?" + string.Join("&", l);
+    }
+}
+
+@{
+    ViewData["Title"] = "Marketplace";
+
+    var r = Context.Request.Query;
+
+    // Labels for active filters
+    var labels = new Dictionary<string, string>
+    {
+        ["q"] = "Search",
+        ["grade"] = "Grade",
+        ["location"] = "Location",
+        ["minPrice"] = "Min ₹",
+        ["maxPrice"] = "Max ₹",
+        ["sort"] = "Sort"
+    };
+
+    // IMPORTANT: Prevent null collection errors.
+    var produceList = ViewBag.ProduceList as List<Produce>
+                      ?? new List<Produce>();
+
+    // Safe listing collection
+    var listings = Model ?? new List<Listing>();
+
+    // Market Pulse values
+    var hasPulse =
+        ViewBag.PulseJson != null &&
+        ViewBag.PulseLast != null;
+
+    int? pulseId = ViewBag.PulseId is int id ? id : null;
+
+    bool isSample =
+        ViewBag.PulseSample is bool sample && sample;
+}
+
+<section class="market-intro">
+    <div>
+        <span class="eyebrow">LIVING FARM MARKETPLACE</span>
+
+        <h1 class="words">
+            <span style="--w:0">Fresh</span>
+            <span style="--w:1">produce,</span>
+            <span style="--w:2"><em>straight</em></span>
+            <span style="--w:3"><em>from</em></span>
+            <span style="--w:4">the</span>
+            <span style="--w:5">source.</span>
+        </h1>
+
+        <p class="lead-fc">
+            Search, filter and tap <b>+</b> on any card to choose your quantity.
+        </p>
+    </div>
+
+    <partial name="_Journey" />
+</section>
+
+
+<!-- FILTER SECTION -->
+
+<form id="filters"
+      method="get"
+      class="filters"
+      role="search">
+
+    <input name="q"
+           value="@r["q"]"
+           class="form-control"
+           placeholder="🔍 Search produce"
+           aria-label="Search produce" />
+
+    <select name="grade"
+            class="form-select"
+            aria-label="Grade">
+
+        <option value="">Any grade</option>
+
+        @foreach (var g in new[] { "A", "B", "C" })
+        {
+            <option value="@g"
+                    selected="@(r["grade"] == g)">
+                Grade @g
+            </option>
+        }
+    </select>
+
+    <input name="location"
+           value="@r["location"]"
+           class="form-control"
+           placeholder="📍 Location"
+           aria-label="Location" />
+
+    <input name="minPrice"
+           value="@r["minPrice"]"
+           type="number"
+           step="any"
+           class="form-control"
+           placeholder="Min ₹"
+           aria-label="Minimum price" />
+
+    <input name="maxPrice"
+           value="@r["maxPrice"]"
+           type="number"
+           step="any"
+           class="form-control"
+           placeholder="Max ₹"
+           aria-label="Maximum price" />
+
+    <select name="sort"
+            class="form-select"
+            aria-label="Sort">
+
+        <option value="">Newest</option>
+
+        <option value="low"
+                selected="@(r["sort"] == "low")">
+            Price: low → high
+        </option>
+
+        <option value="high"
+                selected="@(r["sort"] == "high")">
+            Price: high → low
+        </option>
+
+    </select>
+
+    <button type="submit" class="btn-fc">
+        APPLY
+    </button>
+</form>
+
+
+<!-- MARKETPLACE CONTENT -->
+
+<div id="swap">
+
+    <!-- ACTIVE FILTER CHIPS -->
+
+    <div class="chips" aria-label="Active filters">
+
+        @foreach (var kv in labels.Where(k =>
+            !string.IsNullOrEmpty(r[k.Key].ToString())))
+        {
+            <a class="chip"
+               data-swap
+               href="@Qs(r, kv.Key, null)"
+               aria-label="Remove filter @kv.Value">
+
+                @kv.Value:
+
+                @(kv.Key == "sort"
+                    ? (r[kv.Key] == "low"
+                        ? "Low → High"
+                        : "High → Low")
+                    : r[kv.Key].ToString())
+
+                <b>×</b>
+            </a>
+        }
+
+    </div>
+
+
+    <!-- LISTING COUNT -->
+
+    <p class="count" aria-live="polite">
+        <b>@listings.Count</b>
+        produce @(listings.Count == 1 ? "listing" : "listings") found
+    </p>
+
+
+    <!-- LISTING GRID -->
+
+    <div class="grid">
+
+        @foreach (var l in listings)
+        {
+            <partial name="_ListingCard" model="l" />
+        }
+
+    </div>
+
+
+    <!-- EMPTY STATE -->
+
+    @if (!listings.Any())
+    {
+        <div class="empty">
+            No produce matches your filters.
+            Try removing a chip above.
+        </div>
+    }
+
+
+    <!-- MARKET PULSE -->
+
+    <h2 class="sec reveal">
+        Market Pulse
+    </h2>
+
+    <div class="panel reveal">
+
+        <div class="pulse-top">
+
+            <!-- PRODUCE SELECTION CHIPS -->
+
+            <div class="chips m-0">
+
+                @foreach (var p in produceList.Take(8))
+                {
+                    <a class="chip"
+                       style="@(p.ProduceId == pulseId
+                           ? "background:var(--p);color:var(--on-p)"
+                           : "")"
+                       data-swap
+                       href="@Qs(r, "pulse", p.ProduceId.ToString())">
+
+                        @p.Emoji @p.Name
+
+                    </a>
+                }
+
+            </div>
+
+            @if (hasPulse && isSample)
+            {
+                <span class="pill-sample">
+                    SAMPLE DATA — not live prices
+                </span>
+            }
+
+        </div>
+
+
+        <!-- PRICE HISTORY AVAILABLE -->
+
+        @if (hasPulse)
+        {
+            var d = (decimal)ViewBag.PulseDelta;
+
+            <p class="mt-3 mb-1">
+
+                <b class="serif fs-3">
+                    ₹@(((decimal)ViewBag.PulseLatest).ToString("0.##"))
+                </b>
+
+                <span class="text-muted">
+                    / @ViewBag.PulseUnit modal · @ViewBag.PulseName
+                </span>
+
+                <span class="st @(d >= 0 ? "st-Accepted" : "st-Rejected")">
+
+                    @(d >= 0 ? "▲" : "▼")
+
+                    ₹@(Math.Abs(d).ToString("0.##"))
+
+                    vs previous day
+
+                </span>
+
+            </p>
+
+
+            <!-- CHART -->
+
+            <div class="chart-box">
+
+                <canvas id="pulseChart"
+                        aria-label="Price trend chart for @ViewBag.PulseName"
+                        role="img">
+                </canvas>
+
+            </div>
+
+
+            <!-- SOURCE INFORMATION -->
+
+            <p class="small text-muted mt-2">
+
+                Source: @ViewBag.PulseSource
+
+                · Latest record: @ViewBag.PulseLast
+
+                · Unit: ₹ per @ViewBag.PulseUnit
+
+            </p>
+
+
+            <!-- CHART JSON DATA -->
+
+            <script type="application/json" id="pulseData">
+                @Html.Raw((string)ViewBag.PulseJson)
+            </script>
+        }
+
+        else
+        {
+            <p class="text-muted mt-3 mb-0">
+                No price history is available for this produce yet.
+            </p>
+        }
+
+    </div>
+
+</div>
+
+
+@section Scripts {
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+    <script>
+
+        window.fcRender = () => {
+
+            const el = document.getElementById('pulseData');
+
+            const cv = document.getElementById('pulseChart');
+
+            if (!el || !cv) return;
+
+            const d = JSON.parse(el.textContent);
+
+            fcLine(
+                cv,
+                d.labels,
+                [
+                    {
+                        label: 'Modal price (₹)',
+                        data: d.data
+                    }
+                ],
+                '₹ per unit'
+            );
+        };
+
+        window.fcRender();
+
+    </script>
+}

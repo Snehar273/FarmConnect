@@ -1,0 +1,12 @@
+@{ ViewData["Title"] = "Buyer Dashboard"; }
+<h1 class="page-h">Buyer Dashboard</h1>
+<div class="stat-row">
+  <div class="stat reveal"><small>Open orders</small><b>@ViewBag.Open</b></div>
+  <div class="stat reveal"><small>Completed orders</small><b>@ViewBag.Done</b></div>
+  <div class="stat reveal"><small>Total spent</small><b>₹@(((decimal)ViewBag.Spent).ToString("N2"))</b></div>
+</div>
+<div class="feat">
+  <a class="reveal" asp-controller="Market" asp-action="Index"><span class="ic">🛒</span><h3>Browse marketplace</h3><p>Search, filter and order fresh produce.</p></a>
+  <a class="reveal" asp-controller="Orders" asp-action="Index"><span class="ic">📦</span><h3>My orders</h3><p>Track status of every order.</p></a>
+  <a class="reveal" asp-controller="Price" asp-action="Index"><span class="ic">📈</span><h3>Price history</h3><p>See market price trends.</p></a>
+</div>

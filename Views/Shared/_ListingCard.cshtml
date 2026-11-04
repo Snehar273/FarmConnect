@@ -1,0 +1,54 @@
+@model Listing
+@{
+  var inv = CultureInfo.InvariantCulture;
+  var days = (DateTime.Today - Model.HarvestDate.Date).Days;
+  var when = days <= 0 ? "today" : days == 1 ? "yesterday" : days + " days ago";
+  var total = Model.QuantityAvailable + Model.QuantitySold;
+  var pct = total > 0 ? (int)Math.Round(Model.QuantityAvailable / total * 100) : 0;
+  var step = Model.MinOrderQty >= 50 ? 10 : Model.MinOrderQty >= 10 ? 5 : 1;
+  var name = Model.Produce.Name + (string.IsNullOrEmpty(Model.Variety) ? "" : " · " + Model.Variety);
+}
+<article class="fc-card reveal">
+  <a class="fc-link" asp-controller="Market" asp-action="Details" asp-route-id="@Model.Id">
+    <div class="fc-img">
+      @if (!string.IsNullOrEmpty(Model.ImagePath)) { <img src="@Model.ImagePath" alt="@Model.Produce.Name" loading="lazy" /> } else { <span class="emoji" aria-hidden="true">@Model.Produce.Emoji</span> }
+      <span class="tag">GRADE @Model.Grade</span>
+    </div>
+    <div class="fc-body">
+      <h3>@name</h3>
+      <div class="meta">🌾 @Model.Farmer.FullName · 📍 @Model.Location</div>
+      <div class="meta">Min order @Model.MinOrderQty.ToString("0.##") @Model.Unit</div>
+      <span class="harvest">🗓️ Harvested @when · @Model.HarvestDate.ToString("dd MMM")</span>
+    </div>
+  </a>
+  <div class="bar" style="--w:@pct%" role="img" aria-label="@pct% of listed stock remaining"><i></i></div>
+  <div class="bar-l"><span>Stock left</span><span>@Model.QuantityAvailable.ToString("0.##") @Model.Unit</span></div>
+  <div class="fc-buy" @(User.IsInRole("Buyer") ? Html.Raw($"data-buy data-price=\"{Model.PricePerUnit.ToString(inv)}\" data-min=\"{Model.MinOrderQty.ToString(inv)}\" data-max=\"{Model.QuantityAvailable.ToString(inv)}\" data-unit=\"{Model.Unit}\" data-step=\"{step}\"") : null)>
+    <div class="buy-row">
+      <span class="price">₹@Model.PricePerUnit.ToString("0.##") <small>/ @Model.Unit</small></span>
+      @if (User.IsInRole("Buyer"))
+      {
+        <button type="button" class="plus" data-open aria-expanded="false" aria-label="Order @name">+</button>
+      }
+      else
+      {
+        <a class="plus" asp-controller="Market" asp-action="Details" asp-route-id="@Model.Id" aria-label="View @name">+</a>
+      }
+    </div>
+    @if (User.IsInRole("Buyer"))
+    {
+      <form class="buy-panel" method="post" asp-controller="Orders" asp-action="Place">
+        <input type="hidden" name="listingId" value="@Model.Id" />
+        <div class="stepper">
+          <button type="button" data-dec aria-label="Decrease quantity">−</button>
+          <input name="quantity" type="number" step="any" inputmode="decimal" value="@Model.MinOrderQty.ToString(inv)" aria-label="Quantity in @Model.Unit" />
+          <button type="button" data-inc aria-label="Increase quantity">+</button><span class="unit">@Model.Unit</span>
+        </div>
+        <p class="buy-info">Min @Model.MinOrderQty.ToString("0.##") · @Model.QuantityAvailable.ToString("0.##") @Model.Unit available</p>
+        <div class="buy-msg" aria-live="polite"></div>
+        <div class="buy-total"><span>Total</span><b data-total>₹0.00</b></div>
+        <button class="btn-fc w-100" data-submit>ADD TO ORDER</button>
+      </form>
+    }
+  </div>
+</article>

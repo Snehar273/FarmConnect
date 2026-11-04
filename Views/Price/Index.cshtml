@@ -1,0 +1,415 @@
+@model List<PriceHistoryView>
+
+@{
+    ViewData["Title"] = "Price History";
+
+    var r = Context.Request.Query;
+
+    var rows = Model ?? new List<PriceHistoryView>();
+
+    var units = ViewBag.Units as List<string> ?? new List<string>();
+
+    var markets = ViewBag.Markets as List<string> ?? new List<string>();
+
+    var chartJson = ViewBag.Chart as string
+                    ?? "{\"labels\":[],\"sets\":[]}";
+
+    decimal minPrice = ViewBag.Min != null
+        ? (decimal)ViewBag.Min
+        : 0m;
+
+    decimal maxPrice = ViewBag.Max != null
+        ? (decimal)ViewBag.Max
+        : 0m;
+
+    decimal avgPrice = ViewBag.Avg != null
+        ? (decimal)ViewBag.Avg
+        : 0m;
+
+    var sample = (rows.FirstOrDefault()?.Source ?? "")
+        .Contains("ample", StringComparison.OrdinalIgnoreCase);
+}
+
+<h1 class="page-h">Market Price History</h1>
+
+
+<!-- FILTERS -->
+
+<form method="get" class="filters">
+
+    <select name="produceId"
+            asp-items="(SelectList)ViewBag.Produce"
+            class="form-select"
+            aria-label="Produce">
+    </select>
+
+    <select name="market"
+            class="form-select"
+            aria-label="Market">
+
+        <option value="">All markets</option>
+
+        @foreach (var m in markets)
+        {
+            <option value="@m" selected="@(r["market"] == m)">
+                @m
+            </option>
+        }
+
+    </select>
+
+    <input name="fromDate"
+           type="date"
+           value="@r["fromDate"]"
+           class="form-control"
+           aria-label="From date" />
+
+    <input name="toDate"
+           type="date"
+           value="@r["toDate"]"
+           class="form-control"
+           aria-label="To date" />
+
+    <button type="submit" class="btn-fc">
+        APPLY
+    </button>
+
+</form>
+
+
+<!-- PRICE STATISTICS -->
+
+<div class="stat-row">
+
+    <div class="stat reveal">
+
+        <small>Minimum price</small>
+
+        <b data-count="@minPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+           data-dec="2"
+           data-pre="₹">
+
+            ₹@minPrice.ToString("0.##")
+
+        </b>
+
+    </div>
+
+
+    <div class="stat reveal">
+
+        <small>Maximum price</small>
+
+        <b data-count="@maxPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+           data-dec="2"
+           data-pre="₹">
+
+            ₹@maxPrice.ToString("0.##")
+
+        </b>
+
+    </div>
+
+
+    <div class="stat reveal hl">
+
+        <small>Average modal price</small>
+
+        <b data-count="@avgPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+           data-dec="2"
+           data-pre="₹">
+
+            ₹@avgPrice.ToString("0.##")
+
+        </b>
+
+    </div>
+
+</div>
+
+
+<!-- MULTIPLE UNIT WARNING -->
+
+@if (units.Count > 1)
+{
+    <div class="flash">
+        ⚠ Multiple units in this selection — prices are not converted.
+        Filter carefully.
+    </div>
+}
+
+
+<!-- PRICE CHART -->
+
+<div class="panel reveal">
+
+    @if (sample)
+    {
+        <span class="pill-sample">
+            SAMPLE DATA — not live prices
+        </span>
+    }
+
+    @if (rows.Count > 0)
+    {
+        <div class="chart-box mt-2">
+
+            <canvas id="chart"
+                    role="img"
+                    aria-label="Modal price trend by market">
+            </canvas>
+
+        </div>
+    }
+    else
+    {
+        <div class="empty mt-3">
+            No price history is available for the selected filters.
+            Try selecting another produce or market.
+        </div>
+    }
+
+    <p class="small text-muted mt-2 mb-0">
+
+        From SQL view <code>vw_PriceHistory</code>
+
+        · @(rows.FirstOrDefault()?.Source ?? "No data for this selection.")
+
+        · Unit: ₹ per @(units.FirstOrDefault() ?? "kg")
+
+    </p>
+
+</div>
+
+
+<!-- RECENT RECORDS -->
+
+<h2 class="sec reveal">
+    Recent records
+</h2>
+
+<div class="table-wrap reveal">
+
+    <table class="fc-table">
+
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Produce</th>
+                <th>Market</th>
+                <th>Min</th>
+                <th>Max</th>
+                <th>Modal</th>
+                <th>Unit</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            @foreach (var p in rows
+                .OrderByDescending(x => x.PriceDate)
+                .Take(40))
+            {
+                <tr>
+
+                    <td>
+                        @p.PriceDate.ToString("dd MMM yyyy")
+                    </td>
+
+                    <td>
+                        @p.ProduceName
+                    </td>
+
+                    <td>
+                        @p.MarketName
+                    </td>
+
+                    <td>
+                        ₹@p.MinPrice.ToString("0.##")
+                    </td>
+
+                    <td>
+                        ₹@p.MaxPrice.ToString("0.##")
+                    </td>
+
+                    <td>
+                        <b>₹@p.ModalPrice.ToString("0.##")</b>
+                    </td>
+
+                    <td>
+                        @p.Unit
+                    </td>
+
+                </tr>
+            }
+
+        </tbody>
+
+    </table>
+
+    @if (rows.Count == 0)
+    {
+        <div class="empty">
+            No records found.
+        </div>
+    }
+
+</div>
+
+
+@section Scripts {
+
+    <!-- Chart.js -->
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+    <script>
+
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const canvas = document.getElementById("chart");
+
+            if (!canvas) return;
+
+            if (typeof Chart === "undefined") {
+                console.error("Chart.js failed to load. Check your internet connection or CDN access.");
+                return;
+            }
+
+            // Data prepared by PriceController
+            const chartData = @Html.Raw(chartJson);
+
+            const labels = chartData.labels || [];
+
+            const sourceSets = chartData.sets || [];
+
+            if (labels.length === 0 || sourceSets.length === 0) {
+                console.warn("No price-history data is available for the chart.");
+                return;
+            }
+
+            // Colors for different market lines
+            const colors = [
+                "#24543b",
+                "#e6a23c",
+                "#3979a8",
+                "#a45b8a",
+                "#6b8e23",
+                "#bd5945",
+                "#7456a5",
+                "#368c87"
+            ];
+
+            // Convert controller datasets into Chart.js datasets
+            const datasets = sourceSets.map((set, index) => {
+
+                const color = colors[index % colors.length];
+
+                return {
+                    label: set.label + " (modal)",
+
+                    data: set.data,
+
+                    borderColor: color,
+
+                    backgroundColor: color,
+
+                    borderWidth: 3,
+
+                    pointRadius: 4,
+
+                    pointHoverRadius: 7,
+
+                    pointBackgroundColor: color,
+
+                    tension: 0.35,
+
+                    fill: false,
+
+                    spanGaps: false
+                };
+            });
+
+            // Draw chart
+            new Chart(canvas, {
+
+                type: "line",
+
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+
+                options: {
+
+                    responsive: true,
+
+                    maintainAspectRatio: false,
+
+                    interaction: {
+                        intersect: false,
+                        mode: "index"
+                    },
+
+                    plugins: {
+
+                        legend: {
+                            display: true,
+                            position: "top"
+                        },
+
+                        tooltip: {
+                            enabled: true,
+
+                            callbacks: {
+                                label: function (context) {
+
+                                    const value = context.parsed.y;
+
+                                    return context.dataset.label +
+                                        ": ₹" +
+                                        (value == null ? "No data" : value.toFixed(2));
+                                }
+                            }
+                        }
+                    },
+
+                    scales: {
+
+                        x: {
+                            title: {
+                                display: true,
+                                text: "Date"
+                            },
+
+                            grid: {
+                                display: false
+                            }
+                        },
+
+                        y: {
+
+                            beginAtZero: false,
+
+                            title: {
+                                display: true,
+                                text: "Modal price (₹)"
+                            },
+
+                            ticks: {
+                                callback: function (value) {
+                                    return "₹" + value;
+                                }
+                            }
+                        }
+
+                    }
+
+                }
+
+            });
+
+        });
+
+    </script>
+}

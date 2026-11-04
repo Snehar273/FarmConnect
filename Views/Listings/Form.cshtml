@@ -1,0 +1,22 @@
+@model ListingForm
+@{ ViewData["Title"] = Model.Id == 0 ? "Add Produce" : "Edit Produce"; }
+<h1 class="page-h">@ViewData["Title"]</h1>
+<form class="panel reveal" method="post" enctype="multipart/form-data" asp-action="@(Model.Id == 0 ? "Create" : "Edit")" asp-route-id="@(Model.Id == 0 ? null : Model.Id.ToString())">
+  <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+  <div class="row g-3">
+    <div class="col-md-4"><label asp-for="ProduceId"></label><select asp-for="ProduceId" asp-items="(SelectList)ViewBag.Produce" class="form-select"><option value="0">Select…</option></select><span asp-validation-for="ProduceId" class="text-danger small"></span></div>
+    <div class="col-md-4"><label asp-for="Variety"></label><input asp-for="Variety" class="form-control" placeholder="Hybrid Tomato" /></div>
+    <div class="col-md-4"><label asp-for="Grade"></label><select asp-for="Grade" class="form-select"><option value="A">Grade A</option><option value="B">Grade B</option><option value="C">Grade C</option></select></div>
+    <div class="col-md-3"><label asp-for="QuantityAvailable"></label><input asp-for="QuantityAvailable" class="form-control" /><span asp-validation-for="QuantityAvailable" class="text-danger small"></span></div>
+    <div class="col-md-3"><label asp-for="Unit"></label><select asp-for="Unit" class="form-select"><option>kg</option><option>quintal</option><option>ton</option><option>dozen</option><option>piece</option></select></div>
+    <div class="col-md-3"><label asp-for="MinOrderQty"></label><input asp-for="MinOrderQty" class="form-control" /><span asp-validation-for="MinOrderQty" class="text-danger small"></span></div>
+    <div class="col-md-3"><label asp-for="PricePerUnit"></label><input asp-for="PricePerUnit" class="form-control" /><span asp-validation-for="PricePerUnit" class="text-danger small"></span></div>
+    <div class="col-md-4"><label asp-for="HarvestDate"></label><input asp-for="HarvestDate" type="date" class="form-control" /><span asp-validation-for="HarvestDate" class="text-danger small"></span></div>
+    <div class="col-md-4"><label asp-for="Location"></label><input asp-for="Location" class="form-control" placeholder="Erode" /><span asp-validation-for="Location" class="text-danger small"></span></div>
+    <div class="col-md-4"><label asp-for="Image">Produce image</label><input asp-for="Image" type="file" accept=".jpg,.jpeg,.png,.webp" class="form-control" /><span asp-validation-for="Image" class="text-danger small"></span></div>
+    <div class="col-12"><label asp-for="Description"></label><textarea asp-for="Description" rows="3" class="form-control" placeholder="Freshly harvested tomatoes"></textarea></div>
+  </div>
+  @if (!string.IsNullOrEmpty(Model.ExistingImage)) { <img src="@Model.ExistingImage" class="mt-3 rounded-3" style="height:90px" alt="current image" /> }
+  <div class="mt-4 d-flex gap-2"><button class="btn-fc">@(Model.Id == 0 ? "PUBLISH LISTING" : "SAVE CHANGES")</button><a class="btn-fc-ghost" asp-action="Index">Cancel</a></div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

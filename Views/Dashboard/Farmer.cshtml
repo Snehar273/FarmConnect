@@ -1,0 +1,14 @@
+@{ ViewData["Title"] = "Farmer Dashboard"; }
+<h1 class="page-h">Farmer Dashboard</h1>
+<div class="stat-row">
+  <div class="stat reveal"><small>Active listings</small><b>@ViewBag.Active</b></div>
+  <div class="stat reveal"><small>New orders to review</small><b>@ViewBag.Pending</b></div>
+  <div class="stat reveal"><small>Completed orders</small><b>@ViewBag.Completed</b></div>
+  <div class="stat reveal"><small>Completed sales</small><b>₹@(((decimal)ViewBag.Sales).ToString("N2"))</b></div>
+</div>
+<div class="feat">
+  <a class="reveal" asp-controller="Listings" asp-action="Create"><span class="ic">➕</span><h3>Add produce</h3><p>Publish a new listing for buyers.</p></a>
+  <a class="reveal" asp-controller="Listings" asp-action="Index"><span class="ic">🧺</span><h3>My listings</h3><p>Edit, deactivate and track stock.</p></a>
+  <a class="reveal" asp-controller="Orders" asp-action="Index"><span class="ic">📦</span><h3>Orders received</h3><p>Accept, reject or complete orders.</p></a>
+  <a class="reveal" asp-controller="Earnings" asp-action="Index"><span class="ic">💰</span><h3>Earnings report</h3><p>Revenue, costs and net proceeds.</p></a>
+</div>

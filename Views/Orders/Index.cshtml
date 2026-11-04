@@ -1,0 +1,209 @@
+
+@model List<Order>
+
+@{
+    var farmer = User.IsInRole("Farmer");
+    var buyer = User.IsInRole("Buyer");
+
+    ViewData["Title"] = farmer ? "Orders Received" :
+                        buyer ? "My Orders" : "All Orders";
+}
+
+<h1 class="page-h">@ViewData["Title"]</h1>
+
+<div class="ocards">
+
+@foreach (var o in Model)
+{
+    var it = o.Items.FirstOrDefault();
+
+    var step = o.Status switch
+    {
+        OrderStatus.Placed => 0,
+        OrderStatus.Accepted => 1,
+        OrderStatus.Completed => 2,
+        _ => -1
+    };
+
+    var names = new[]
+    {
+        ("📝", "Placed"),
+        ("✅", "Accepted"),
+        ("🎉", "Completed")
+    };
+
+    <article class="ocard reveal">
+
+        <div class="ohead">
+
+            <div>
+                <b>@o.OrderNo</b>
+
+                <span class="st st-@o.Status">
+                    @o.Status
+                </span>
+
+                <div class="meta">
+                    @(farmer ? "Buyer" : "Farmer"):
+                    @(farmer ? o.Buyer.FullName : o.Farmer.FullName)
+                    · @o.CreatedAt.ToString("dd MMM yyyy, HH:mm")
+                </div>
+
+                @if (it != null)
+                {
+                    <div class="meta">
+                        @it.ProduceName ·
+                        @it.Quantity.ToString("0.##")
+                        @it.Unit ×
+                        ₹@it.AgreedUnitPrice.ToString("0.##")
+                    </div>
+                }
+
+            </div>
+
+            <div class="otot">
+                ₹@o.TotalAmount.ToString("N2")
+            </div>
+
+        </div>
+
+        @if (step >= 0)
+        {
+            <ol class="tl"
+                aria-label="Order progress: @o.Status"
+                style="--p:@(step * 50)%">
+
+                <div class="tl-track" aria-hidden="true">
+                    <i></i>
+                </div>
+
+                @for (var i = 0; i < 3; i++)
+                {
+                    <li class="@(step > i ? "done" : step == i ? "now" : "")"
+                        aria-current="@(step == i ? "step" : null)">
+
+                        <div class="dot">
+                            @(step >= i ? names[i].Item1 : "")
+                        </div>
+
+                        @names[i].Item2
+
+                    </li>
+                }
+
+            </ol>
+        }
+        else
+        {
+            <div class="oend">
+                @(o.Status == OrderStatus.Rejected
+                    ? "❌ This order was rejected. Reserved stock was released."
+                    : "🚫 This order was cancelled. Reserved stock was released.")
+            </div>
+        }
+
+        <div>
+
+            @* Farmer: Accept or Reject *@
+
+            @if (farmer && o.Status == OrderStatus.Placed)
+            {
+                <form method="post"
+                      action="@Url.Action("UpdateStatus", "Orders")"
+                      class="d-inline">
+
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden" name="id" value="@o.Id" />
+                    <input type="hidden" name="status" value="Accepted" />
+
+                    <button class="btn-sm-fc">
+                        Accept
+                    </button>
+
+                </form>
+
+                <form method="post"
+                      action="@Url.Action("UpdateStatus", "Orders")"
+                      class="d-inline">
+
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden" name="id" value="@o.Id" />
+                    <input type="hidden" name="status" value="Rejected" />
+
+                    <button class="btn-sm-fc danger">
+                        Reject
+                    </button>
+
+                </form>
+            }
+
+            @* Farmer: Complete or Cancel *@
+
+            @if (farmer && o.Status == OrderStatus.Accepted)
+            {
+                <form method="post"
+                      action="@Url.Action("UpdateStatus", "Orders")"
+                      class="d-inline">
+
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden" name="id" value="@o.Id" />
+                    <input type="hidden" name="status" value="Completed" />
+
+                    <button class="btn-sm-fc">
+                        Mark completed
+                    </button>
+
+                </form>
+
+                <form method="post"
+                      action="@Url.Action("UpdateStatus", "Orders")"
+                      class="d-inline">
+
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden" name="id" value="@o.Id" />
+                    <input type="hidden" name="status" value="Cancelled" />
+
+                    <button class="btn-sm-fc danger">
+                        Cancel
+                    </button>
+
+                </form>
+            }
+
+            @* Buyer: Cancel order *@
+
+            @if (buyer && o.Status == OrderStatus.Placed)
+            {
+                <form method="post"
+                      action="@Url.Action("UpdateStatus", "Orders")"
+                      class="d-inline">
+
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden" name="id" value="@o.Id" />
+                    <input type="hidden" name="status" value="Cancelled" />
+
+                    <button class="btn-sm-fc danger">
+                        Cancel order
+                    </button>
+
+                </form>
+            }
+
+        </div>
+
+    </article>
+}
+
+@if (!Model.Any())
+{
+    <div class="empty">
+        No orders yet.
+    </div>
+}
+
+</div>

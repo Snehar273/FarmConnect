@@ -1,0 +1,60 @@
+@inject UserManager<ApplicationUser> UM
+@{ var auth = User.Identity.IsAuthenticated; var who = auth ? (await UM.GetUserAsync(User))?.FullName : null; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>@ViewData["Title"] · FarmConnect</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<nav class="fc-nav navbar navbar-expand-lg sticky-top">
+  <div class="container">
+    <a class="brand" asp-controller="Home" asp-action="Index">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#2d4a2b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20c0-9 5-15 15-16 0 9-5 15-14 15"/><path d="M5 20c3-5 6-8 10-10"/></svg>
+      <span><b>FARMCONNECT</b><small>FROM OUR FARMS TO YOUR HOME</small></span>
+    </a>
+    <button class="navbar-toggler border-0" data-bs-toggle="collapse" data-bs-target="#nv"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nv">
+      <ul class="navbar-nav mx-auto gap-lg-3">
+        <li class="nav-item"><a class="nav-link" asp-controller="Market" asp-action="Index">Marketplace</a></li>
+        @if (auth) { <li class="nav-item"><a class="nav-link" asp-controller="Price" asp-action="Index">Price History</a></li> }
+        @if (User.IsInRole("Farmer"))
+        {
+          <li class="nav-item"><a class="nav-link" asp-controller="Listings" asp-action="Index">My Listings</a></li>
+          <li class="nav-item"><a class="nav-link" asp-controller="Orders" asp-action="Index">Orders Received</a></li>
+          <li class="nav-item"><a class="nav-link" asp-controller="Earnings" asp-action="Index">Earnings</a></li>
+        }
+        @if (User.IsInRole("Buyer")) { <li class="nav-item"><a class="nav-link" asp-controller="Orders" asp-action="Index">My Orders</a></li> }
+        @if (User.IsInRole("Admin")) { <li class="nav-item"><a class="nav-link" asp-controller="Admin" asp-action="Index">Admin</a></li> }
+      </ul>
+      <div class="d-flex align-items-center gap-2">
+        @if (auth)
+        {
+          <a class="btn-fc-ghost" asp-controller="Dashboard" asp-action="Index">👤 @who</a>
+          <form asp-controller="Account" asp-action="Logout" method="post"><button class="btn-fc-ghost">Logout</button></form>
+        }
+        else
+        {
+          <a class="btn-fc-ghost" asp-controller="Account" asp-action="Login">Login</a>
+          <a class="btn-fc" asp-controller="Account" asp-action="Register">Get started</a>
+        }
+      </div>
+    </div>
+  </div>
+</nav>
+<main class="container py-4">
+  @if (TempData["Ok"] != null) { <div class="flash ok">✓ @TempData["Ok"]</div> }
+  @if (TempData["Error"] != null) { <div class="flash bad">⚠ @TempData["Error"]</div> }
+  @RenderBody()
+</main>
+<footer class="fc-foot-bar"><div class="container d-flex flex-wrap justify-content-between gap-2"><span class="serif">FarmConnect</span><span>BUILT WITH PURPOSE. DELIVERED WITH CARE. 🌾</span></div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

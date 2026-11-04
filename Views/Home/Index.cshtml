@@ -1,0 +1,38 @@
+@model List<Listing>
+@{ ViewData["Title"] = "Fresh from the farm"; }
+<section class="hero">
+  <div>
+    <span class="eyebrow">DIRECT FROM FARMERS · FAIR PRICES · ALWAYS FRESH</span>
+    <h1 class="words"><span style="--w:0">Straight</span> <span style="--w:1">from</span> <span style="--w:2">the</span> <span style="--w:3">farm.</span><br /><span style="--w:4"><em>Naturally</em></span> <span style="--w:5"><em>yours.</em></span></h1>
+    <p class="lead-fc">Buy harvest-fresh produce straight from verified farmers, or list your own crop and reach buyers in minutes. Clear prices, live stock, no middlemen.</p>
+    <div class="cta">
+      <a class="btn-fc" asp-controller="Market" asp-action="Index">SHOP FRESH PRODUCE →</a>
+      @if (!User.Identity.IsAuthenticated) { <a class="btn-fc-ghost" asp-controller="Account" asp-action="Register" asp-route-role="Farmer">🧑‍🌾 Sell your harvest</a> }
+    </div>
+    <div class="mini-stats">
+      <div><b data-count="@ViewBag.Farmers">0</b><small>Partner farmers</small></div>
+      <div><b data-count="@ViewBag.Listings">0</b><small>Live listings</small></div>
+      <div><b data-count="@ViewBag.Orders">0</b><small>Orders placed</small></div>
+    </div>
+  </div>
+  <partial name="_Journey" />
+</section>
+
+<h2 class="sec reveal">Fresh right now</h2>
+<div class="grid">
+  @foreach (var l in Model) { <partial name="_ListingCard" model="l" /> }
+  @if (!Model.Any()) { <div class="empty">No produce listed yet — farmers can publish the first listing!</div> }
+</div>
+
+<h2 class="sec reveal">How FarmConnect works</h2>
+<div class="feat">
+  <div class="reveal hov"><div class="step-n">1</div><h3>Farmers list</h3><p>Add produce with grade, quantity, minimum order and price in under a minute.</p></div>
+  <div class="reveal hov"><div class="step-n">2</div><h3>Buyers order</h3><p>Pick a quantity — we check minimum order and live stock before confirming.</p></div>
+  <div class="reveal hov"><div class="step-n">3</div><h3>Farmers confirm</h3><p>Accept, complete and track every order with a clear status timeline.</p></div>
+  <div class="reveal hov"><div class="step-n">4</div><h3>Everyone sees prices</h3><p>Market price history helps both sides agree on a fair rate.</p></div>
+</div>
+
+@if (!User.Identity.IsAuthenticated)
+{
+  <div class="band reveal"><h2>Ready to grow with us?</h2><div class="d-flex gap-2 flex-wrap"><a class="btn-fc" asp-controller="Account" asp-action="Register">Create free account</a><a class="btn-fc-ghost text-white border-white" asp-controller="Account" asp-action="Login">Login</a></div></div>
+}

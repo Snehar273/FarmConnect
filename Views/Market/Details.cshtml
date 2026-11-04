@@ -1,0 +1,34 @@
+@model Listing
+@{ ViewData["Title"] = Model.Produce.Name; var inv = CultureInfo.InvariantCulture; var mine = User.IsInRole("Farmer"); }
+<a asp-action="Index" class="small">&larr; Back to marketplace</a>
+<div class="detail reveal">
+  <div class="detail-img">@if (!string.IsNullOrEmpty(Model.ImagePath)) { <img src="@Model.ImagePath" alt="@Model.Produce.Name" /> } else { <span class="emoji big">@Model.Produce.Emoji</span> }<span class="tag">GRADE @Model.Grade</span></div>
+  <div class="detail-info">
+    <span class="st st-@Model.Status">@Model.Status</span>
+    <h1>@(Model.Produce.Name + (string.IsNullOrEmpty(Model.Variety) ? "" : " · " + Model.Variety))</h1>
+    <p class="meta">🌾 @Model.Farmer.FullName · 📍 @Model.Location</p>
+    <div class="bigprice">₹@Model.PricePerUnit.ToString("0.##") <small>/ @Model.Unit</small></div>
+    <div class="facts">
+      <div><small>Available</small><b>@Model.QuantityAvailable.ToString("0.##") @Model.Unit</b></div>
+      <div><small>Minimum order</small><b>@Model.MinOrderQty.ToString("0.##") @Model.Unit</b></div>
+      <div><small>Harvested</small><b>@Model.HarvestDate.ToString("dd MMM yyyy")</b></div>
+    </div>
+    <p class="desc">@Model.Description</p>
+    @if (User.IsInRole("Buyer") && Model.Status == ListingStatus.Active)
+    {
+      <form method="post" asp-controller="Orders" asp-action="Place" class="order-box">
+        <h3>Place your order</h3>
+        <input type="hidden" name="listingId" value="@Model.Id" />
+        <label>Quantity (@Model.Unit)</label>
+        <input id="qty" name="quantity" type="number" step="any" class="form-control" value="@Model.MinOrderQty.ToString(inv)" data-price="@Model.PricePerUnit.ToString(inv)" data-min="@Model.MinOrderQty.ToString(inv)" data-max="@Model.QuantityAvailable.ToString(inv)" required />
+        <div id="qmsg" class="small mt-1"></div>
+        <div class="total"><span>Total order amount</span><b id="total">₹0.00</b></div>
+        <button class="btn-fc w-100">PLACE ORDER</button>
+      </form>
+    }
+    else if (!User.Identity.IsAuthenticated) { <a class="btn-fc" asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Context.Request.Path">Login as buyer to order</a> }
+    else if (mine) { <a class="btn-fc" asp-controller="Listings" asp-action="Edit" asp-route-id="@Model.Id">Edit listing</a> }
+    else if (!User.IsInRole("Buyer")) { <div class="empty">Only buyers can place orders.</div> }
+    else { <div class="empty">This listing is not accepting orders.</div> }
+  </div>
+</div>
