@@ -1,0 +1,909 @@
+/* ===== Market, dashboards, admin ===== */
+
+@keyframes spinb {
+    to {
+        transform: rotate(360deg)
+    }
+}
+
+@keyframes flashk {
+    0% {
+        color: var(--amber);
+        transform: scale(1.18)
+    }
+    100% {
+        transform: none
+    }
+}
+
+@keyframes slidef {
+    from {
+        opacity: 0;
+        transform: translateX(-24px)
+    }
+}
+
+@keyframes hlf {
+    0% {
+        background: color-mix(in srgb, var(--amber) 38%, transparent)
+    }
+    100% {
+        background: transparent
+    }
+}
+
+@keyframes lowp {
+    50% {
+        box-shadow: 0 0 0 7px color-mix(in srgb, var(--terra) 25%, transparent)
+    }
+}
+
+@keyframes pgping {
+    0% {
+        box-shadow: 0 0 0 0 var(--terra)
+    }
+    70%,
+    100% {
+        box-shadow: 0 0 0 9px transparent
+    }
+}
+
+@keyframes fadeup {
+    from {
+        opacity: 0;
+        transform: translateY(14px)
+    }
+}
+
+
+/* market hero */
+
+.scene.mkt {
+    min-height: 0
+}
+
+.scene.mkt>.content {
+    display: block;
+    min-height: 0;
+    padding: 2.4rem 2.6rem 6.4rem
+}
+
+.mkt h1 {
+    font-size: clamp(2.2rem, 4.6vw, 3.5rem);
+    margin: .5rem 0
+}
+
+.mfilter {
+    display: grid;
+    grid-template-columns: 2.2fr 1fr 1.2fr .8fr .8fr 1.2fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: .9rem;
+    margin-top: 1.2rem;
+    background: color-mix(in srgb, var(--card) 90%, transparent);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    box-shadow: var(--sh);
+    animation: fadeup .7s .5s both
+}
+
+.mf-search {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 0 .8rem;
+    transition: .3s
+}
+
+.mf-search:focus-within {
+    border-color: var(--p2);
+    box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--p2) 25%, transparent);
+    transform: translateY(-2px)
+}
+
+.mf-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    padding: .7rem 0;
+    outline: 0
+}
+
+.qchips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: .9rem;
+    animation: fadeup .7s .7s both
+}
+
+.qchip {
+    display: inline-block;
+    padding: .4rem .9rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    border: 1px solid var(--line);
+    color: var(--text);
+    text-decoration: none;
+    font-size: .82rem;
+    transition: transform .25s, background .25s
+}
+
+.qchip:hover {
+    transform: translateY(-3px) scale(1.04);
+    color: var(--text)
+}
+
+.qchip.on {
+    background: var(--p);
+    color: var(--on-p);
+    border-color: var(--p)
+}
+
+.mk-body {
+    margin-top: 1.6rem
+}
+
+#swap.loading .grid {
+    filter: blur(2px);
+    opacity: .55
+}
+
+.emptyx {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 2.4rem;
+    background: var(--card);
+    border-radius: 22px;
+    box-shadow: var(--sh);
+    border: 1px dashed var(--line)
+}
+
+.emptyx span {
+    font-size: 3.4rem;
+    display: inline-block;
+    animation: float 4s ease-in-out infinite
+}
+
+.emptyx p {
+    color: var(--mute);
+    margin: 0
+}
+
+.h2x::after {
+    content: "";
+    display: block;
+    height: 3px;
+    width: 0;
+    margin-top: .35rem;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--amber), var(--p2));
+    transition: width 1s .3s
+}
+
+.h2x.in::after {
+    width: 90px
+}
+
+.fc-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, .28) 50%, transparent 60%);
+    transform: translateX(-120%);
+    transition: transform .8s
+}
+
+.fc-card:hover::after {
+    transform: translateX(120%)
+}
+
+
+/* grid + cards */
+
+.dg {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 16px;
+    margin: 1rem 0
+}
+
+.c4 {
+    grid-column: span 4
+}
+
+.c5 {
+    grid-column: span 5
+}
+
+.c6 {
+    grid-column: span 6
+}
+
+.c7 {
+    grid-column: span 7
+}
+
+.c8 {
+    grid-column: span 8
+}
+
+.c12 {
+    grid-column: span 12
+}
+
+.cb {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    box-shadow: var(--sh);
+    padding: 1.1rem 1.3rem;
+    min-width: 0
+}
+
+.cb h3 {
+    font-size: 1.35rem;
+    margin: 0
+}
+
+.cb .cap {
+    font-size: .76rem;
+    color: var(--mute);
+    margin: .1rem 0 .7rem
+}
+
+.cv {
+    position: relative;
+    height: 230px
+}
+
+.cv.tall {
+    height: 280px
+}
+
+.nodata {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    color: var(--mute);
+    font-size: .85rem
+}
+
+.allgood {
+    text-align: center;
+    color: var(--mute);
+    padding: 1rem
+}
+
+.allgood span {
+    font-size: 2.4rem;
+    display: inline-block;
+    animation: float 4s ease-in-out infinite
+}
+
+.allgood p {
+    margin: .2rem 0 0
+}
+
+
+/* KPI cards with animated border */
+
+.kgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin: 1rem 0
+}
+
+.kcard {
+    position: relative;
+    border-radius: 22px;
+    padding: 1.2rem 1.3rem;
+    box-shadow: var(--sh);
+    overflow: hidden;
+    isolation: isolate;
+    transition: transform .2s ease-out;
+    will-change: transform
+}
+
+.kcard::before {
+    content: "";
+    position: absolute;
+    inset: -70%;
+    z-index: -2;
+    background: conic-gradient(from 0deg, transparent 0 68%, var(--c, var(--amber)) 86%, transparent);
+    animation: spinb 6s linear infinite
+}
+
+.kcard::after {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    z-index: -1;
+    border-radius: 20px;
+    background: var(--card)
+}
+
+.kcard small {
+    display: block;
+    color: var(--mute);
+    font-size: .76rem;
+    margin-top: .5rem
+}
+
+.kcard b {
+    display: inline-block;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.4rem;
+    line-height: 1.1;
+    color: var(--text)
+}
+
+.kcard .sub {
+    display: block;
+    font-size: .72rem;
+    color: var(--mute)
+}
+
+.kline {
+    display: block;
+    height: 4px;
+    border-radius: 4px;
+    margin-top: .7rem;
+    background: linear-gradient(90deg, var(--c, var(--amber)), transparent);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 1.2s .4s
+}
+
+.in .kline,
+.kcard.in .kline {
+    transform: scaleX(1)
+}
+
+.orb {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 1.5rem;
+    background: color-mix(in srgb, var(--c, var(--amber)) 22%, var(--card));
+    animation: float 5s ease-in-out infinite
+}
+
+.flashk {
+    animation: flashk 1s
+}
+
+
+/* gauges */
+
+.gwrap {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap
+}
+
+.gauge {
+    width: 128px;
+    height: 128px;
+    flex: none
+}
+
+.gauge .bg {
+    fill: none;
+    stroke: var(--soft);
+    stroke-width: 10
+}
+
+.gauge .fg {
+    fill: none;
+    stroke: var(--p2);
+    stroke-width: 10;
+    stroke-linecap: round;
+    stroke-dasharray: 100;
+    stroke-dashoffset: calc(100 - var(--cv, 0));
+    transform: rotate(-90deg);
+    transform-origin: 60px 60px;
+    transition: stroke-dashoffset 1.6s cubic-bezier(.3, .8, .3, 1)
+}
+
+.gauge text {
+    fill: var(--text);
+    font: 700 26px Inter, sans-serif
+}
+
+
+/* rows, timeline, bars */
+
+.arow {
+    display: flex;
+    gap: .8rem;
+    align-items: center;
+    padding: .7rem .6rem;
+    border-radius: 14px;
+    transition: background .3s, transform .3s
+}
+
+.arow:hover {
+    background: var(--soft);
+    transform: translateX(4px)
+}
+
+.arow .am {
+    flex: 1;
+    min-width: 0
+}
+
+.dotp {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--terra);
+    flex: none;
+    animation: pgping 1.6s infinite
+}
+
+.srow {
+    margin: .8rem 0
+}
+
+.srow .lab {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+    flex-wrap: wrap;
+    font-size: .84rem;
+    margin-bottom: .3rem
+}
+
+.sb {
+    height: 10px;
+    border-radius: 10px;
+    background: var(--soft);
+    overflow: hidden
+}
+
+.sb i {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 10px;
+    background: linear-gradient(90deg, var(--p2), var(--amber));
+    transition: width 1.3s .2s cubic-bezier(.3, .8, .3, 1)
+}
+
+.in .sb i {
+    width: var(--w)
+}
+
+.srow.low .sb i {
+    background: var(--terra)
+}
+
+.srow.low .sb {
+    animation: lowp 1.8s infinite
+}
+
+.tline {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 1.4rem;
+    position: relative
+}
+
+.tline::before {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 3px;
+    background: linear-gradient(var(--p2), var(--amber));
+    transform-origin: top;
+    transform: scaleY(0);
+    transition: transform 1.4s
+}
+
+.in .tline::before {
+    transform: scaleY(1)
+}
+
+.tline li {
+    position: relative;
+    padding: .5rem 0 .5rem .5rem;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity .5s calc(var(--i)*.12s + .2s), transform .5s calc(var(--i)*.12s + .2s)
+}
+
+.in .tline li {
+    opacity: 1;
+    transform: none
+}
+
+.tline li::before {
+    content: "";
+    position: absolute;
+    left: -1.4rem;
+    top: .8rem;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--c, var(--amber));
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--c, var(--amber)) 25%, transparent)
+}
+
+.otk {
+    padding: .8rem 0;
+    border-bottom: 1px dashed var(--line)
+}
+
+.otk:last-child {
+    border: 0
+}
+
+.otk .lab {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+    flex-wrap: wrap;
+    font-size: .86rem;
+    margin-bottom: .4rem
+}
+
+.otk .pr {
+    height: 8px;
+    border-radius: 8px;
+    background: var(--soft);
+    overflow: hidden
+}
+
+.otk .pr i {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 8px;
+    background: linear-gradient(90deg, var(--p2), var(--amber));
+    transition: width 1.3s .3s cubic-bezier(.3, .8, .3, 1)
+}
+
+.in .otk .pr i {
+    width: var(--w)
+}
+
+.steps3 {
+    display: flex;
+    justify-content: space-between;
+    font-size: .7rem;
+    color: var(--mute);
+    margin-top: .3rem
+}
+
+.steps3 .on {
+    color: var(--p2);
+    font-weight: 600
+}
+
+.tips2 {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: .7rem
+}
+
+.tips2 .tip {
+    display: none;
+    font-size: 1.05rem;
+    margin: 0
+}
+
+.tips2 .tip.on {
+    display: block;
+    animation: fadeup .5s both
+}
+
+
+/* quick actions */
+
+.qas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px
+}
+
+.qa {
+    position: relative;
+    overflow: hidden;
+    display: block;
+    text-decoration: none;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 1.3rem;
+    box-shadow: var(--sh);
+    transition: transform .3s, color .4s
+}
+
+.qa::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--p), var(--p2));
+    transform: translateY(101%);
+    transition: transform .5s cubic-bezier(.3, .8, .3, 1)
+}
+
+.qa:hover::before {
+    transform: none
+}
+
+.qa:hover {
+    color: var(--on-p);
+    transform: translateY(-6px)
+}
+
+.qa>* {
+    position: relative
+}
+
+.qa .e {
+    display: inline-block;
+    font-size: 2rem;
+    transition: transform .5s
+}
+
+.qa:hover .e {
+    transform: scale(1.25) rotate(-10deg)
+}
+
+.qa h3 {
+    font-size: 1.35rem;
+    margin: .3rem 0 .1rem
+}
+
+.qa p {
+    margin: 0;
+    font-size: .82rem;
+    opacity: .75
+}
+
+.qa .ar {
+    position: absolute;
+    right: 1.1rem;
+    top: 1.1rem;
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: .3s;
+    font-weight: 700
+}
+
+.qa:hover .ar {
+    opacity: 1;
+    transform: none
+}
+
+
+/* admin live */
+
+.livebar {
+    display: flex;
+    gap: .9rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: .8rem 1.1rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: var(--sh)
+}
+
+.livepill2 {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    color: var(--terra)
+}
+
+.livepill2 i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--terra);
+    animation: pgping 1.6s infinite
+}
+
+.clk {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    min-width: 7.5ch
+}
+
+.cdw {
+    width: 90px;
+    height: 6px;
+    border-radius: 6px;
+    background: var(--soft);
+    overflow: hidden
+}
+
+.cdw i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--p2), var(--amber));
+    transition: width 1s linear
+}
+
+.alerts,
+.feed2 {
+    list-style: none;
+    margin: 0;
+    padding: 0
+}
+
+.al {
+    margin: .4rem 0;
+    animation: slidef .5s both
+}
+
+.al a,
+.al span {
+    display: block;
+    padding: .65rem .9rem;
+    border-radius: 14px;
+    text-decoration: none;
+    color: var(--text);
+    border-left: 5px solid var(--p2);
+    background: var(--soft);
+    transition: transform .25s
+}
+
+.al a:hover {
+    transform: translateX(5px);
+    color: var(--text)
+}
+
+.al.warn a,
+.al.warn span {
+    border-color: var(--amber);
+    background: color-mix(in srgb, var(--amber) 18%, transparent)
+}
+
+.al.bad a,
+.al.bad span {
+    border-color: var(--terra);
+    background: color-mix(in srgb, var(--terra) 16%, transparent)
+}
+
+.al.info a,
+.al.info span {
+    border-color: #4a7a8c
+}
+
+.fi {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: .6rem .5rem;
+    border-top: 1px solid var(--line);
+    font-size: .84rem;
+    animation: slidef .5s both
+}
+
+.fi:first-child {
+    border-top: 0
+}
+
+.fi.new {
+    animation: slidef .6s both, hlf 2.4s
+}
+
+.fi .em {
+    font-size: 1.2rem
+}
+
+.fi .mn {
+    flex: 1;
+    min-width: 180px
+}
+
+.fi .t {
+    margin-left: auto;
+    color: var(--mute);
+    font-size: .72rem;
+    white-space: nowrap
+}
+
+.mtabs .tablist {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: .8rem
+}
+
+.mtabs .tablist button {
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--text);
+    padding: .55rem 1.2rem;
+    border-radius: 999px;
+    font-weight: 600;
+    transition: .3s;
+    cursor: pointer
+}
+
+.mtabs .tablist button[aria-selected=true] {
+    background: var(--p);
+    color: var(--on-p);
+    transform: translateY(-2px);
+    box-shadow: var(--sh)
+}
+
+.mtabs .tabpanel {
+    animation: fadeup .4s both
+}
+
+@media(max-width:1000px) {
+    .c4,
+    .c5,
+    .c6,
+    .c7,
+    .c8 {
+        grid-column: span 12
+    }
+    .mfilter {
+        grid-template-columns: 1fr 1fr
+    }
+    .mf-search {
+        grid-column: 1/-1
+    }
+    .scene.mkt>.content {
+        padding: 1.6rem 1.2rem 6rem
+    }
+}
+
+@media(prefers-reduced-motion:reduce) {
+    .kcard::before,
+    .orb,
+    .dotp,
+    .livepill2 i,
+    .emptyx span,
+    .allgood span,
+    .srow.low .sb {
+        animation: none!important
+    }
+    .kline {
+        transform: none
+    }
+    .tline::before {
+        transform: none
+    }
+    .tline li {
+        opacity: 1;
+        transform: none
+    }
+    .sb i,
+    .otk .pr i {
+        width: var(--w)
+    }
+    .gauge .fg {
+        transition: none
+    }
+}

@@ -1,0 +1,21 @@
+@{ var crops = new[] { "🌱", "🌾", "🌽", "🥬", "🌱", "🌾", "🍅", "🌱", "🌽", "🌾", "🥕", "🌱", "🌾", "🌽", "🥬", "🌱" }; }
+<div class="sky" aria-hidden="true">
+  <div class="stars">@for (var s = 0; s < 18; s++) { <i style="left:@((s * 37) % 100)%;top:@((s * 23) % 46)%;--d:@(s % 6)s"></i> }</div>
+  <div class="sun"><i></i></div>
+  <div class="cloud" style="--t:8%;--w:170px;--s:55s;--dl:-12s"></div>
+  <div class="cloud" style="--t:24%;--w:120px;--s:78s;--dl:-44s"></div>
+  <svg class="bird" viewBox="0 0 40 16" style="--t:20%;--s:28s;--dl:-4s"><path d="M2 12 Q11 0 20 10 Q29 0 38 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  <svg class="bird" viewBox="0 0 40 16" style="--t:12%;--s:34s;--dl:-16s;width:24px"><path d="M2 12 Q11 0 20 10 Q29 0 38 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  <svg class="hill h1" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0 170 C240 70 480 230 720 150 S1200 50 1440 140 V320 H0Z"/></svg>
+  <svg class="hill h2" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0 120 C200 200 460 60 740 130 S1230 210 1440 110 V320 H0Z"/></svg>
+  <svg class="hill h3" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0 110 C260 40 520 190 800 120 S1200 40 1440 100 V320 H0Z"/></svg>
+  <div class="crops">@for (var c = 0; c < crops.Length; c++) { <span style="--i:@c">@crops[c]</span> }</div>
+  <svg class="tractor" viewBox="0 0 130 80">
+    <g class="body">
+      <rect x="72" y="34" width="44" height="20" rx="5" fill="#3F7653"/><rect x="104" y="16" width="5" height="20" rx="2" fill="#555"/>
+      <rect x="36" y="12" width="34" height="44" rx="5" fill="#234B36"/><rect x="42" y="18" width="22" height="16" rx="3" fill="#cfe8d8"/>
+      <g class="wh"><circle cx="50" cy="56" r="20" fill="#1d261c"/><circle cx="50" cy="56" r="9" fill="#E7A642"/><path d="M50 40V72M34 56H66" stroke="#1d261c" stroke-width="3"/></g>
+      <g class="wh s"><circle cx="104" cy="64" r="12" fill="#1d261c"/><circle cx="104" cy="64" r="5" fill="#E7A642"/><path d="M104 54V74M94 64H114" stroke="#1d261c" stroke-width="2.4"/></g>
+    </g>
+  </svg>
+</div>

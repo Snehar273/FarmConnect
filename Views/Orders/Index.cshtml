@@ -1,209 +1,380 @@
 
 @model List<Order>
 
+@using System.Globalization
+
 @{
     var farmer = User.IsInRole("Farmer");
     var buyer = User.IsInRole("Buyer");
 
-    ViewData["Title"] = farmer ? "Orders Received" :
-                        buyer ? "My Orders" : "All Orders";
+    ViewData["Title"] = farmer
+        ? "Orders Received"
+        : buyer ? "My Orders" : "All Orders";
+
+    var inv = CultureInfo.InvariantCulture;
+
+    var live = Model.Where(o =>
+        o.Status != OrderStatus.Rejected &&
+        o.Status != OrderStatus.Cancelled).ToList();
+
+    var days = Enumerable.Range(0, 14)
+        .Select(i => DateTime.Today.AddDays(i - 13))
+        .ToList();
+
+    var perDay = days
+        .Select(d => live.Count(o => o.CreatedAt.Date == d))
+        .ToList();
+
+    var valDay = days
+        .Select(d => live.Where(o => o.CreatedAt.Date == d)
+            .Sum(o => o.TotalAmount))
+        .ToList();
+
+    var byProd = live
+        .SelectMany(o => o.Items)
+        .GroupBy(i => i.ProduceName)
+        .Select(g => new
+        {
+            k = g.Key,
+            v = g.Sum(i => i.Quantity * i.AgreedUnitPrice)
+        })
+        .OrderByDescending(x => x.v)
+        .Take(6)
+        .ToList();
+
+    var byParty = live
+        .GroupBy(o => farmer ? o.Buyer.FullName : o.Farmer.FullName)
+        .Select(g => new
+        {
+            k = g.Key,
+            v = g.Sum(o => o.TotalAmount)
+        })
+        .OrderByDescending(x => x.v)
+        .Take(6)
+        .ToList();
+
+    int total = Model.Count;
+
+    int open = Model.Count(o =>
+        o.Status == OrderStatus.Placed ||
+        o.Status == OrderStatus.Accepted);
+
+    int done = Model.Count(o =>
+        o.Status == OrderStatus.Completed);
+
+    int accepted = Model.Count(o =>
+        o.Status == OrderStatus.Accepted ||
+        o.Status == OrderStatus.Completed);
+
+    int ended = total - open - done;
+
+    int mxF = Math.Max(1, total);
+
+    decimal value = live.Sum(o => o.TotalAmount);
+
+    decimal avg = live.Count == 0
+        ? 0m
+        : value / live.Count;
+
+    var cfg = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        charts = new object[]
+        {
+            new
+            {
+                id = "cDay",
+                type = "combo",
+                @int = true,
+                labels = days.Select(d => d.ToString("dd MMM")),
+                bar = new
+                {
+                    label = "Orders per day",
+                    data = perDay
+                },
+                line = new
+                {
+                    label = "Order value (₹)",
+                    data = valDay
+                }
+            },
+            new
+            {
+                id = "cProd",
+                type = "donut",
+                labels = byProd.Select(x => x.k),
+                data = byProd.Select(x => x.v)
+            },
+            new
+            {
+                id = "cParty",
+                type = "bar",
+                h = true,
+                labels = byParty.Select(x => x.k),
+                data = byParty.Select(x => x.v)
+            }
+        }
+    });
 }
 
-<h1 class="page-h">@ViewData["Title"]</h1>
+<link rel="stylesheet" href="~/css/pages.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/viz.css" asp-append-version="true" />
+
+<div class="kgrid">
+
+    <div class="kcard reveal" data-tilt style="--c:var(--p2)">
+        <span class="orb">📦</span>
+        <small>@(farmer ? "Orders received" : "Orders")</small>
+        <b data-count="@total">0</b>
+        <i class="kline"></i>
+    </div>
+
+    <div class="kcard reveal" data-tilt style="--c:var(--amber)">
+        <span class="orb">⏳</span>
+        <small>In progress</small>
+        <b data-count="@open">0</b>
+        <span class="sub">placed or accepted</span>
+        <i class="kline"></i>
+    </div>
+
+    <div class="kcard reveal" data-tilt style="--c:var(--p)">
+        <span class="orb">🎉</span>
+        <small>Completed</small>
+        <b data-count="@done">0</b>
+        <i class="kline"></i>
+    </div>
+
+    <div class="kcard reveal" data-tilt style="--c:var(--terra)">
+        <span class="orb">💰</span>
+        <small>Order value</small>
+        <b data-count="@value.ToString(inv)"
+           data-dec="0"
+           data-pre="₹">₹0</b>
+        <span class="sub">
+            avg ₹@avg.ToString("N0") per order · excl. cancelled
+        </span>
+        <i class="kline"></i>
+    </div>
+
+</div>
+
+<div class="dg">
+
+    <div class="cb c8 reveal">
+        <h3>Activity, last 14 days</h3>
+        <p class="cap">Bars: orders per day. Line: order value in ₹.</p>
+
+        <div class="cv tall">
+            <canvas id="cDay"
+                    role="img"
+                    aria-label="Orders and order value per day"></canvas>
+        </div>
+    </div>
+
+    <div class="cb c4 reveal">
+        <h3>Order journey</h3>
+        <p class="cap">How far your orders get.</p>
+
+        <div class="fun">
+
+            <div class="fr" style="--w:@(total == 0 ? 0 : 100)%;--i:0">
+                <span>📝 Placed</span>
+                <b>@total</b>
+            </div>
+
+            <div class="fr" style="--w:@(accepted * 100 / mxF)%;--i:1">
+                <span>✅ Accepted</span>
+                <b>@accepted</b>
+            </div>
+
+            <div class="fr" style="--w:@(done * 100 / mxF)%;--i:2">
+                <span>🎉 Completed</span>
+                <b>@done</b>
+            </div>
+
+            <div class="fr" style="--w:@(ended * 100 / mxF)%;--i:3">
+                <span>🚫 Rejected / cancelled</span>
+                <b>@ended</b>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="cb c6 reveal">
+        <h3>Value by produce</h3>
+        <p class="cap">Where the money goes, in ₹.</p>
+
+        <div class="cv">
+            <canvas id="cProd"
+                    role="img"
+                    aria-label="Order value by produce"></canvas>
+        </div>
+    </div>
+
+    <div class="cb c6 reveal">
+        <h3>
+            @(farmer
+                ? "Top buyers"
+                : buyer ? "Where you buy from" : "Top farmers")
+        </h3>
+
+        <p class="cap">By order value, in ₹.</p>
+
+        <div class="cv">
+            <canvas id="cParty"
+                    role="img"
+                    aria-label="Order value by counterparty"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<h2 class="sec h2x reveal">
+    @(farmer ? "Orders to manage" : "Your orders, step by step")
+</h2>
 
 <div class="ocards">
 
-@foreach (var o in Model)
-{
-    var it = o.Items.FirstOrDefault();
-
-    var step = o.Status switch
+    @foreach (var o in Model)
     {
-        OrderStatus.Placed => 0,
-        OrderStatus.Accepted => 1,
-        OrderStatus.Completed => 2,
-        _ => -1
-    };
+        var it = o.Items.First();
 
-    var names = new[]
-    {
-        ("📝", "Placed"),
-        ("✅", "Accepted"),
-        ("🎉", "Completed")
-    };
+        <article class="ocard reveal">
 
-    <article class="ocard reveal">
+            <div class="ohead">
 
-        <div class="ohead">
+                <div>
+                    <b>@o.OrderNo</b>
 
-            <div>
-                <b>@o.OrderNo</b>
+                    <span class="st st-@o.Status">@o.Status</span>
 
-                <span class="st st-@o.Status">
-                    @o.Status
-                </span>
+                    <div class="meta">
+                        @(farmer ? "Buyer" : "Farmer"):
+                        @(farmer ? o.Buyer.FullName : o.Farmer.FullName)
+                        · @o.CreatedAt.ToString("dd MMM yyyy, HH:mm")
+                    </div>
 
-                <div class="meta">
-                    @(farmer ? "Buyer" : "Farmer"):
-                    @(farmer ? o.Buyer.FullName : o.Farmer.FullName)
-                    · @o.CreatedAt.ToString("dd MMM yyyy, HH:mm")
-                </div>
-
-                @if (it != null)
-                {
                     <div class="meta">
                         @it.ProduceName ·
-                        @it.Quantity.ToString("0.##")
-                        @it.Unit ×
+                        @it.Quantity.ToString("0.##") @it.Unit ×
                         ₹@it.AgreedUnitPrice.ToString("0.##")
                     </div>
-                }
-
-            </div>
-
-            <div class="otot">
-                ₹@o.TotalAmount.ToString("N2")
-            </div>
-
-        </div>
-
-        @if (step >= 0)
-        {
-            <ol class="tl"
-                aria-label="Order progress: @o.Status"
-                style="--p:@(step * 50)%">
-
-                <div class="tl-track" aria-hidden="true">
-                    <i></i>
                 </div>
 
-                @for (var i = 0; i < 3; i++)
+                <div class="otot">
+                    ₹@o.TotalAmount.ToString("N2")
+                </div>
+
+            </div>
+
+            <partial name="_OrderTimeline" model="o" />
+
+            <div class="mt-2">
+
+                @* Farmer: Accept or Reject a newly placed order *@
+                @if (farmer && o.Status == OrderStatus.Placed)
                 {
-                    <li class="@(step > i ? "done" : step == i ? "now" : "")"
-                        aria-current="@(step == i ? "step" : null)">
+                    <form method="post"
+                          action="@Url.Action("UpdateStatus", "Orders")"
+                          class="d-inline">
 
-                        <div class="dot">
-                            @(step >= i ? names[i].Item1 : "")
-                        </div>
+                        @Html.AntiForgeryToken()
 
-                        @names[i].Item2
+                        <input type="hidden" name="id" value="@o.Id" />
+                        <input type="hidden" name="status" value="Accepted" />
 
-                    </li>
+                        <button type="submit" class="btn-sm-fc">
+                            Accept
+                        </button>
+                    </form>
+
+                    <form method="post"
+                          action="@Url.Action("UpdateStatus", "Orders")"
+                          class="d-inline">
+
+                        @Html.AntiForgeryToken()
+
+                        <input type="hidden" name="id" value="@o.Id" />
+                        <input type="hidden" name="status" value="Rejected" />
+
+                        <button type="submit" class="btn-sm-fc danger">
+                            Reject
+                        </button>
+                    </form>
                 }
 
-            </ol>
-        }
-        else
-        {
-            <div class="oend">
-                @(o.Status == OrderStatus.Rejected
-                    ? "❌ This order was rejected. Reserved stock was released."
-                    : "🚫 This order was cancelled. Reserved stock was released.")
+                @* Farmer: Complete or Cancel an accepted order *@
+                @if (farmer && o.Status == OrderStatus.Accepted)
+                {
+                    <form method="post"
+                          action="@Url.Action("UpdateStatus", "Orders")"
+                          class="d-inline">
+
+                        @Html.AntiForgeryToken()
+
+                        <input type="hidden" name="id" value="@o.Id" />
+                        <input type="hidden" name="status" value="Completed" />
+
+                        <button type="submit" class="btn-sm-fc">
+                            Mark completed
+                        </button>
+                    </form>
+
+                    <form method="post"
+                          action="@Url.Action("UpdateStatus", "Orders")"
+                          class="d-inline">
+
+                        @Html.AntiForgeryToken()
+
+                        <input type="hidden" name="id" value="@o.Id" />
+                        <input type="hidden" name="status" value="Cancelled" />
+
+                        <button type="submit" class="btn-sm-fc danger">
+                            Cancel
+                        </button>
+                    </form>
+                }
+
+                @* Buyer: Cancel an order that has not been accepted *@
+                @if (buyer && o.Status == OrderStatus.Placed)
+                {
+                    <form method="post"
+                          action="@Url.Action("UpdateStatus", "Orders")"
+                          class="d-inline">
+
+                        @Html.AntiForgeryToken()
+
+                        <input type="hidden" name="id" value="@o.Id" />
+                        <input type="hidden" name="status" value="Cancelled" />
+
+                        <button type="submit" class="btn-sm-fc danger">
+                            Cancel order
+                        </button>
+                    </form>
+                }
+
             </div>
-        }
 
-        <div>
+        </article>
+    }
 
-            @* Farmer: Accept or Reject *@
-
-            @if (farmer && o.Status == OrderStatus.Placed)
-            {
-                <form method="post"
-                      action="@Url.Action("UpdateStatus", "Orders")"
-                      class="d-inline">
-
-                    @Html.AntiForgeryToken()
-
-                    <input type="hidden" name="id" value="@o.Id" />
-                    <input type="hidden" name="status" value="Accepted" />
-
-                    <button class="btn-sm-fc">
-                        Accept
-                    </button>
-
-                </form>
-
-                <form method="post"
-                      action="@Url.Action("UpdateStatus", "Orders")"
-                      class="d-inline">
-
-                    @Html.AntiForgeryToken()
-
-                    <input type="hidden" name="id" value="@o.Id" />
-                    <input type="hidden" name="status" value="Rejected" />
-
-                    <button class="btn-sm-fc danger">
-                        Reject
-                    </button>
-
-                </form>
-            }
-
-            @* Farmer: Complete or Cancel *@
-
-            @if (farmer && o.Status == OrderStatus.Accepted)
-            {
-                <form method="post"
-                      action="@Url.Action("UpdateStatus", "Orders")"
-                      class="d-inline">
-
-                    @Html.AntiForgeryToken()
-
-                    <input type="hidden" name="id" value="@o.Id" />
-                    <input type="hidden" name="status" value="Completed" />
-
-                    <button class="btn-sm-fc">
-                        Mark completed
-                    </button>
-
-                </form>
-
-                <form method="post"
-                      action="@Url.Action("UpdateStatus", "Orders")"
-                      class="d-inline">
-
-                    @Html.AntiForgeryToken()
-
-                    <input type="hidden" name="id" value="@o.Id" />
-                    <input type="hidden" name="status" value="Cancelled" />
-
-                    <button class="btn-sm-fc danger">
-                        Cancel
-                    </button>
-
-                </form>
-            }
-
-            @* Buyer: Cancel order *@
-
-            @if (buyer && o.Status == OrderStatus.Placed)
-            {
-                <form method="post"
-                      action="@Url.Action("UpdateStatus", "Orders")"
-                      class="d-inline">
-
-                    @Html.AntiForgeryToken()
-
-                    <input type="hidden" name="id" value="@o.Id" />
-                    <input type="hidden" name="status" value="Cancelled" />
-
-                    <button class="btn-sm-fc danger">
-                        Cancel order
-                    </button>
-
-                </form>
-            }
-
+    @if (!Model.Any())
+    {
+        <div class="emptyx">
+            <span>📭</span>
+            <h3>No orders yet</h3>
+            <p>Orders will appear here with a live timeline.</p>
         </div>
-
-    </article>
-}
-
-@if (!Model.Any())
-{
-    <div class="empty">
-        No orders yet.
-    </div>
-}
+    }
 
 </div>
+
+@section Scripts {
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+    <script src="~/js/viz.js" asp-append-version="true"></script>
+
+    <script>
+        fcViz(@Html.Raw(cfg));
+    </script>
+}

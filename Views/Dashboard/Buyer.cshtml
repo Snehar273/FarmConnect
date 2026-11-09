@@ -1,12 +1,59 @@
-@{ ViewData["Title"] = "Buyer Dashboard"; }
-<h1 class="page-h">Buyer Dashboard</h1>
-<div class="stat-row">
-  <div class="stat reveal"><small>Open orders</small><b>@ViewBag.Open</b></div>
-  <div class="stat reveal"><small>Completed orders</small><b>@ViewBag.Done</b></div>
-  <div class="stat reveal"><small>Total spent</small><b>₹@(((decimal)ViewBag.Spent).ToString("N2"))</b></div>
+@{
+  ViewData["Title"] = "Buyer Dashboard"; var inv = CultureInfo.InvariantCulture;
+  int open = ViewBag.Open, done = ViewBag.Done, total = ViewBag.Total;
+  decimal spent = ViewBag.Spent;
+  var recent = ((List<Order>)ViewBag.Recent).Take(3).ToList(); var picks = (List<Listing>)ViewBag.Picks;
+  var tips = new[] {
+    "🔎|Compare before you buy|Use the marketplace filters to compare grade, location and price.",
+    "🗓️|Check the harvest date|Every card shows when the produce was harvested.",
+    "📦|Follow your order|Each order has a live timeline in My Orders.",
+    "🚚|Transport is automatic|A transport booking is created for you right after you order.",
+    "📈|Watch the market|Price History shows whether a price is high or low right now."
+  };
+}
+<link rel="stylesheet" href="~/css/pages.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/viz.css" asp-append-version="true" />
+
+<div class="kgrid">
+  <div class="kcard reveal" data-tilt style="--c:var(--amber)"><span class="orb">📝</span><small>Open orders</small><b data-count="@open">0</b><span class="sub">placed or accepted</span><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--p)"><span class="orb">🎉</span><small>Completed orders</small><b data-count="@done">0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--p2)"><span class="orb">📦</span><small>All orders</small><b data-count="@total">0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--terra)"><span class="orb">💰</span><small>Total spent</small><b data-count="@spent.ToString(inv)" data-dec="2" data-pre="₹">₹0</b><span class="sub">on completed orders</span><i class="kline"></i></div>
 </div>
-<div class="feat">
-  <a class="reveal" asp-controller="Market" asp-action="Index"><span class="ic">🛒</span><h3>Browse marketplace</h3><p>Search, filter and order fresh produce.</p></a>
-  <a class="reveal" asp-controller="Orders" asp-action="Index"><span class="ic">📦</span><h3>My orders</h3><p>Track status of every order.</p></a>
-  <a class="reveal" asp-controller="Price" asp-action="Index"><span class="ic">📈</span><h3>Price history</h3><p>See market price trends.</p></a>
+
+<div class="dg">
+  <div class="cb c8 reveal"><h3>Your spending, last 14 days</h3><p class="cap">Value of orders you placed (rejected and cancelled are not counted).</p><div class="cv tall"><canvas id="cSpend" role="img" aria-label="Spending over the last 14 days"></canvas></div></div>
+  <div class="cb c4 reveal"><h3>Order mix</h3><p class="cap">Your orders by status.</p><div class="cv tall"><canvas id="cMix" role="img" aria-label="Orders by status"></canvas></div></div>
+
+  <div class="cb c7 reveal"><h3>Order tracker</h3><p class="cap">Live timelines for your latest orders.</p>
+    @foreach (var o in recent)
+    {
+      var it = o.Items.First();
+      <div class="otk2"><div class="lab"><span><b>@o.OrderNo</b> · @it.ProduceName · @it.Quantity.ToString("0.##") @it.Unit</span><span class="st st-@o.Status">@o.Status</span></div><partial name="_OrderTimeline" model="o" /></div>
+    }
+    @if (!recent.Any()) { <div class="allgood"><span>🛒</span><p>No orders yet. Pick something fresh below!</p></div> }
+    else { <a class="btn-sm-fc mt-2" asp-controller="Orders" asp-action="Index">See all orders →</a> }
+  </div>
+  <div class="c5 reveal"><partial name="_Tips" model="tips" /></div>
 </div>
+
+<h2 class="sec h2x reveal">Fresh picks for you</h2>
+<div class="grid">@foreach (var l in picks) { <partial name="_ListingCard" model="l" /> }
+  @if (!picks.Any()) { <div class="emptyx"><span>🌱</span><h3>No produce listed yet</h3><p>Check back soon.</p></div> }</div>
+
+<h2 class="sec h2x reveal">Quick actions</h2>
+<div class="qas">
+  <a class="qa reveal" asp-controller="Market" asp-action="Index"><span class="ar">→</span><span class="e">🛒</span><h3>Browse marketplace</h3><p>Search, filter and order fresh produce.</p></a>
+  <a class="qa reveal" asp-controller="Orders" asp-action="Index"><span class="ar">→</span><span class="e">📦</span><h3>My orders</h3><p>Track the status of every order.</p></a>
+  <a class="qa reveal" asp-controller="Price" asp-action="Index"><span class="ar">→</span><span class="e">📈</span><h3>Price history</h3><p>See market price trends.</p></a>
+</div>
+
+@section Scripts {
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="~/js/pages.js" asp-append-version="true"></script>
+  <script src="~/js/viz.js" asp-append-version="true"></script>
+  <script>
+    var D = @Html.Raw((string)ViewBag.Dash);
+    fcPage({ spark: [{ id: 'cSpend', labels: D.labels, label: 'Spend (₹)', data: D.spend }], donut: [{ id: 'cMix', d: D.status }] });
+  </script>
+}

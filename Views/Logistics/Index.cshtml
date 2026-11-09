@@ -1,0 +1,639 @@
+
+@model List<LogisticsBooking>
+@using System.Globalization
+@using FarmConnect.Models
+
+@{
+    ViewData["Title"] = "Logistics";
+
+    var inv = CultureInfo.InvariantCulture;
+
+    var partners = (List<LogisticsPartner>)ViewBag.Partners;
+    var outbox = (List<OutboxEvent>)ViewBag.Outbox;
+    var oc = (Dictionary<string, int>)ViewBag.OutCounts;
+
+    int Oc(string k)
+    {
+        return oc.ContainsKey(k) ? oc[k] : 0;
+    }
+
+    // FIX: Calculate the number of available transport partners.
+    int avail = partners.Count(p => p.IsAvailable && p.Status == "Active");
+
+    int assigned = Model.Count(x => x.BookingStatus == BookingStatus.Assigned);
+    int pend = Model.Count(x => x.BookingStatus == BookingStatus.PendingAssignment);
+    int canc = Model.Count(x => x.BookingStatus == BookingStatus.Cancelled);
+
+    decimal cost = Model
+        .Where(x => x.BookingStatus == BookingStatus.Assigned)
+        .Sum(x => x.EstimatedCost ?? 0m);
+
+    decimal kg = Model
+        .Where(x => x.BookingStatus != BookingStatus.Cancelled)
+        .Sum(x => x.QuantityKg ?? 0m);
+
+    int cover = (assigned + pend) == 0
+        ? 100
+        : assigned * 100 / (assigned + pend);
+
+    var city = new Dictionary<string, int[]>
+    {
+        ["Coimbatore"] = new[] { 96, 355 },
+        ["Tiruppur"] = new[] { 229, 316 },
+        ["Erode"] = new[] { 362, 236 },
+        ["Salem"] = new[] { 512, 124 },
+        ["Namakkal"] = new[] { 520, 278 }
+    };
+
+    string Key(string place)
+    {
+        if (string.IsNullOrWhiteSpace(place))
+            return null;
+
+        foreach (var kv in city)
+        {
+            if (place.Contains(kv.Key, StringComparison.OrdinalIgnoreCase))
+                return kv.Key;
+        }
+
+        return null;
+    }
+
+    string N(double v)
+    {
+        return v.ToString("0.#", inv);
+    }
+
+    var routes = new List<(string id, string cls, string path)>();
+    var touch = new Dictionary<string, int>();
+    var ri = 0;
+
+    foreach (var bk in Model.Take(40))
+    {
+        var a = Key(bk.PickupLocation);
+        var z = Key(bk.DeliveryLocation);
+
+        if (a == null || z == null)
+            continue;
+
+        var cls = bk.BookingStatus == BookingStatus.Cancelled
+            ? "off"
+            : bk.BookingStatus == BookingStatus.PendingAssignment
+                ? "pend"
+                : "ok";
+
+        double x1 = city[a][0];
+        double y1 = city[a][1];
+        double x2 = city[z][0];
+        double y2 = city[z][1];
+
+        string path;
+
+        if (a == z)
+        {
+            var rad = 22 + (ri % 3) * 7;
+
+            path = "M" + N(x1) + " " + N(y1 - rad)
+                + " a " + N(rad) + " " + N(rad)
+                + " 0 1 1 -0.1 0";
+        }
+        else
+        {
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var len = Math.Sqrt(dx * dx + dy * dy);
+            var off = (26 + (ri % 3) * 14) * (ri % 2 == 0 ? 1 : -1);
+
+            path = "M" + N(x1) + " " + N(y1)
+                + " Q" + N((x1 + x2) / 2 + (-dy / len) * off)
+                + " " + N((y1 + y2) / 2 + (dx / len) * off)
+                + " " + N(x2) + " " + N(y2);
+        }
+
+        routes.Add(("b" + bk.BookingId, cls, path));
+
+        if (bk.BookingStatus != BookingStatus.Cancelled)
+        {
+            touch[a] = (touch.ContainsKey(a) ? touch[a] : 0) + 1;
+            touch[z] = (touch.ContainsKey(z) ? touch[z] : 0) + 1;
+        }
+
+        ri++;
+    }
+
+    var st = Model
+        .GroupBy(x => x.BookingStatus)
+        .Select(g => new
+        {
+            k = g.Key.ToString(),
+            n = g.Count()
+        })
+        .ToList();
+
+    var byP = Model
+        .Where(x => x.BookingStatus == BookingStatus.Assigned && x.Partner != null)
+        .GroupBy(x => x.Partner.PartnerName)
+        .Select(g => new
+        {
+            k = g.Key,
+            v = g.Sum(x => x.EstimatedCost ?? 0m)
+        })
+        .OrderByDescending(x => x.v)
+        .ToList();
+
+    var cfg = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        charts = new object[]
+        {
+            new
+            {
+                id = "cSt",
+                type = "donut",
+                labels = st.Select(x => x.k),
+                data = st.Select(x => x.n)
+            },
+            new
+            {
+                id = "cCost",
+                type = "bar",
+                h = true,
+                labels = byP.Select(x => x.k),
+                data = byP.Select(x => x.v)
+            }
+        }
+    });
+}
+
+<link rel="stylesheet" href="~/css/pages.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/viz.css" asp-append-version="true" />
+
+<div class="livebar reveal">
+    <span class="small text-muted">
+        Bookings are created automatically after an
+        <code>OrderPlaced</code> event. Partners are demo records.
+        No real vehicle is dispatched.
+    </span>
+
+    <form method="post" asp-action="Rematch" class="ms-auto">
+        <button type="submit" class="btn-fc">
+            🔄 RE-MATCH PENDING BOOKINGS
+        </button>
+    </form>
+</div>
+
+<div class="kgrid">
+
+    <div class="kcard reveal" data-tilt style="--c:var(--p2)">
+        <span class="orb">🚚</span>
+        <small>Bookings</small>
+        <b data-count="@Model.Count">0</b>
+        <span class="sub">@canc cancelled</span>
+        <i class="kline"></i>
+    </div>
+
+    <div class="kcard reveal" data-tilt style="--c:var(--p)">
+        <span class="orb">✅</span>
+        <small>Assigned</small>
+        <b data-count="@assigned">0</b>
+        <span class="sub">@avail partner(s) available</span>
+        <i class="kline"></i>
+    </div>
+
+    <div class="kcard reveal" data-tilt style="--c:var(--amber)">
+        <span class="orb">🕒</span>
+        <small>Awaiting partner</small>
+        <b data-count="@pend">0</b>
+        <span class="sub">use Re-match or assign below</span>
+        <i class="kline"></i>
+    </div>
+
+    <div class="kcard reveal" data-tilt style="--c:var(--terra)">
+        <span class="orb">💸</span>
+        <small>Estimated cost</small>
+        <b data-count="@cost.ToString(inv)" data-dec="0" data-pre="₹">₹0</b>
+        <span class="sub">estimates only</span>
+        <i class="kline"></i>
+    </div>
+
+    <div class="kcard reveal" data-tilt style="--c:var(--p2)">
+        <span class="orb">⚖️</span>
+        <small>Load to move</small>
+        <b data-count="@kg.ToString(inv)" data-dec="0">0</b>
+        <span class="sub">kg, excl. cancelled</span>
+        <i class="kline"></i>
+    </div>
+
+</div>
+
+<div class="dg">
+
+    <div class="cb c7 reveal">
+        <h3>Route map</h3>
+        <p class="cap">
+            Schematic, not to scale. Hover a booking below to highlight its route.
+        </p>
+
+        <div class="mapbox">
+            <svg class="tnmap"
+                 viewBox="0 0 620 430"
+                 role="img"
+                 aria-label="Schematic map of booked transport routes">
+
+                <rect class="mapbg" width="620" height="430" rx="22" />
+
+                <ellipse class="cont" cx="300" cy="230" rx="260" ry="170" />
+                <ellipse class="cont" cx="300" cy="230" rx="190" ry="120" />
+                <ellipse class="cont" cx="300" cy="230" rx="110" ry="70" />
+
+                @foreach (var rt in routes)
+                {
+                    <path class="rt @rt.cls"
+                          data-rt="@rt.id"
+                          d="@rt.path" />
+                }
+
+                @foreach (var kv in city)
+                {
+                    <g>
+                        <circle class="pu" cx="@kv.Value[0]" cy="@kv.Value[1]" r="9" />
+                        <circle class="c0" cx="@kv.Value[0]" cy="@kv.Value[1]" r="9" />
+                    </g>
+                }
+            </svg>
+
+            @foreach (var kv in city)
+            {
+                <span class="cl"
+                      style="left:@((kv.Value[0] / 620.0 * 100).ToString("0.#", inv))%;top:@((kv.Value[1] / 430.0 * 100).ToString("0.#", inv))%">
+
+                    <b>@kv.Key</b>
+
+                    @if (touch.ContainsKey(kv.Key))
+                    {
+                        <i>@touch[kv.Key]</i>
+                    }
+                </span>
+            }
+        </div>
+
+        <div class="maplegend">
+            <span class="ok"><i></i>Assigned</span>
+            <span class="pend"><i></i>Awaiting partner</span>
+            <span class="off"><i></i>Cancelled</span>
+        </div>
+    </div>
+
+    <div class="cb c5 reveal">
+        <h3>Booking status</h3>
+        <p class="cap">How your bookings are split.</p>
+
+        <div class="cv">
+            <canvas id="cSt" role="img" aria-label="Bookings by status"></canvas>
+        </div>
+
+        <div class="gwrap mt-2">
+            <svg class="gauge"
+                 viewBox="0 0 120 120"
+                 data-v="@cover"
+                 role="img"
+                 aria-label="Partner coverage @cover percent">
+
+                <circle class="bg" cx="60" cy="60" r="50" />
+                <circle class="fg" cx="60" cy="60" r="50" pathLength="100" />
+                <text x="60" y="68" text-anchor="middle">@cover%</text>
+            </svg>
+
+            <div class="small text-muted">
+                <b>Partner coverage</b><br />
+                Active bookings that already have a partner.
+            </div>
+        </div>
+    </div>
+
+    <div class="cb c12 reveal">
+        <h3>Estimated cost by partner</h3>
+        <p class="cap">
+            Sum of estimated transport cost for assigned bookings (₹).
+        </p>
+
+        <div class="cv">
+            <canvas id="cCost" role="img" aria-label="Estimated cost by partner"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<h2 class="sec h2x reveal">Bookings</h2>
+
+<div data-filter class="reveal">
+
+    <div class="fbar">
+        <div class="fs">
+            <span aria-hidden="true">🔍</span>
+            <input type="search"
+                   placeholder="Search order number or city…"
+                   aria-label="Search bookings" />
+        </div>
+
+        <div class="fchips" role="group" aria-label="Filter bookings">
+            <button type="button" class="on" data-f="all">
+                All <b>@Model.Count</b>
+            </button>
+
+            <button type="button" data-f="pending">
+                Awaiting <b>@pend</b>
+            </button>
+
+            <button type="button" data-f="assigned">
+                Assigned <b>@assigned</b>
+            </button>
+
+            <button type="button" data-f="cancelled">
+                Cancelled <b>@canc</b>
+            </button>
+        </div>
+    </div>
+
+    <div class="bks">
+
+        @foreach (var b in Model)
+        {
+            var key = b.BookingStatus == BookingStatus.PendingAssignment
+                ? "pending"
+                : b.BookingStatus == BookingStatus.Cancelled
+                    ? "cancelled"
+                    : "assigned";
+
+            <article class="bk @key"
+                     data-st="@key"
+                     data-rt="b@b.BookingId"
+                     tabindex="0">
+
+                <div class="bk-h">
+                    <b>@b.Order.OrderNo</b>
+
+                    <span class="st @(key == "assigned" ? "st-Accepted" : key == "pending" ? "st-Placed" : "st-Rejected")">
+                        @b.BookingStatus
+                    </span>
+
+                    <span class="bk-cost">
+                        @(b.EstimatedCost.HasValue
+                            ? "₹" + b.EstimatedCost.Value.ToString("N0")
+                            : "—")
+                    </span>
+                </div>
+
+                <div class="bk-route">
+                    <span class="pin">📍 @b.PickupLocation</span>
+                    <span class="rd"></span>
+                    <span class="pin">🏁 @(b.DeliveryLocation ?? "—")</span>
+                </div>
+
+                <div class="small text-muted">
+                    @(b.QuantityKg.HasValue
+                        ? b.QuantityKg.Value.ToString("0.##") + " kg"
+                        : "Quantity n/a")
+                    ·
+                    @(b.Partner != null
+                        ? b.Partner.PartnerName
+                        : "No partner yet")
+                </div>
+
+                @if (!string.IsNullOrEmpty(b.Note))
+                {
+                    <div class="small text-muted mt-1">@b.Note</div>
+                }
+
+                @if (b.BookingStatus == BookingStatus.PendingAssignment ||
+                     b.BookingStatus == BookingStatus.Assigned)
+                {
+                    <form method="post" asp-action="Assign" class="d-flex gap-1 mt-2">
+
+                        <input type="hidden"
+                               name="bookingId"
+                               value="@b.BookingId" />
+
+                        <select name="partnerId"
+                                class="form-select form-select-sm"
+                                aria-label="Partner">
+
+                            @foreach (var p in partners.Where(p => p.IsAvailable && p.Status == "Active"))
+                            {
+                                <option value="@p.LogisticsPartnerId">
+                                    @p.PartnerName
+                                </option>
+                            }
+                        </select>
+
+                        <button type="submit" class="btn-sm-fc">
+                            @(b.BookingStatus == BookingStatus.Assigned
+                                ? "Reassign"
+                                : "Assign")
+                        </button>
+                    </form>
+                }
+            </article>
+        }
+
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="emptyx">
+            <span>🚚</span>
+            <h3>No bookings yet</h3>
+            <p>Place an order as a buyer and a booking appears here automatically.</p>
+        </div>
+    }
+
+    <p class="fnone text-muted" hidden>
+        No bookings match your search.
+    </p>
+
+</div>
+
+<h2 class="sec h2x reveal">Transport partners</h2>
+
+<div class="pcs">
+
+    @foreach (var p in partners)
+    {
+        var mine = Model
+            .Where(x => x.LogisticsPartnerId == p.LogisticsPartnerId &&
+                        x.BookingStatus == BookingStatus.Assigned)
+            .ToList();
+
+        var heavy = mine.Count == 0
+            ? 0m
+            : mine.Max(x => x.QuantityKg ?? 0m);
+
+        var w = p.CapacityKg <= 0
+            ? 0
+            : (int)Math.Min(100m, heavy * 100m / p.CapacityKg);
+
+        var on = p.IsAvailable && p.Status == "Active";
+
+        <article class="pc reveal @(on ? "" : "offp")">
+
+            <div class="pc-h">
+                <span class="ve">🚚</span>
+
+                <div>
+                    <b>@p.PartnerName</b>
+                    <small>@p.VehicleType · @p.ContactNumber</small>
+                </div>
+
+                <form method="post"
+                      asp-action="TogglePartner"
+                      asp-route-id="@p.LogisticsPartnerId">
+
+                    <button type="submit"
+                            class="swt @(on ? "on" : "")"
+                            role="switch"
+                            aria-checked="@(on ? "true" : "false")"
+                            aria-label="Availability for @p.PartnerName">
+
+                        <i></i>
+                    </button>
+                </form>
+            </div>
+
+            <div class="pc-c">
+                <small>Picks up from</small>
+                <div>
+                    @foreach (var c in (p.PickupAreas ?? "").Split(
+                        ',',
+                        StringSplitOptions.RemoveEmptyEntries |
+                        StringSplitOptions.TrimEntries))
+                    {
+                        <span class="chip2">@c</span>
+                    }
+                </div>
+            </div>
+
+            <div class="pc-c">
+                <small>Delivers to</small>
+                <div>
+                    @foreach (var c in (p.DeliveryAreas ?? "").Split(
+                        ',',
+                        StringSplitOptions.RemoveEmptyEntries |
+                        StringSplitOptions.TrimEntries))
+                    {
+                        <span class="chip2">@c</span>
+                    }
+                </div>
+            </div>
+
+            <div class="lab small mt-2 d-flex justify-content-between">
+                <span>Heaviest booking vs capacity</span>
+                <b>@heavy.ToString("0.##") / @p.CapacityKg.ToString("0") kg</b>
+            </div>
+
+            <div class="lm">
+                <i style="--w:@w%"></i>
+            </div>
+
+            <div class="small text-muted mt-2">
+                ₹@p.RatePerKg.ToString("0.##") per kg · @mine.Count active booking(s)
+            </div>
+
+        </article>
+    }
+
+</div>
+
+<h2 class="sec h2x reveal">Background event pipeline</h2>
+
+<div class="cb reveal">
+
+    <p class="cap">
+        Every order saves an event that a background worker processes.
+        Failed events are retried automatically.
+    </p>
+
+    <div class="pipe">
+
+        <div class="pn" style="--c:var(--amber)">
+            <div class="pb" data-count="@Oc("Pending")">0</div>
+            <small>Waiting</small>
+        </div>
+
+        <div class="pn" style="--c:#4a7a8c">
+            <div class="pb" data-count="@Oc("Processing")">0</div>
+            <small>Processing</small>
+        </div>
+
+        <div class="pn" style="--c:var(--p2)">
+            <div class="pb" data-count="@Oc("Processed")">0</div>
+            <small>Processed</small>
+        </div>
+
+        <div class="pn" style="--c:var(--terra)">
+            <div class="pb" data-count="@Oc("Failed")">0</div>
+            <small>Failed</small>
+        </div>
+
+    </div>
+
+    <h3 class="fs-5">Latest events</h3>
+
+    <ol class="tline">
+
+        @for (var i = 0; i < outbox.Count; i++)
+        {
+            var e = outbox[i];
+
+            var col = e.Status == OutboxStatus.Processed
+                ? "var(--p2)"
+                : e.Status == OutboxStatus.Failed
+                    ? "var(--terra)"
+                    : "var(--amber)";
+
+            <li style="--i:@i;--c:@col">
+
+                <b>@e.EventType</b>
+
+                <span class="st @(e.Status == OutboxStatus.Processed
+                    ? "st-Accepted"
+                    : e.Status == OutboxStatus.Failed
+                        ? "st-Rejected"
+                        : "st-Placed")">
+                    @e.Status
+                </span>
+
+                <div class="small text-muted">
+                    @e.CreatedAt.ToString("dd MMM HH:mm:ss")
+                    · retries @e.RetryCount
+                    @(e.ProcessedAt.HasValue
+                        ? " · done " + e.ProcessedAt.Value.ToString("HH:mm:ss")
+                        : "")
+                    @(string.IsNullOrEmpty(e.ErrorMessage)
+                        ? ""
+                        : " · " + e.ErrorMessage)
+                </div>
+
+            </li>
+        }
+
+    </ol>
+
+    @if (!outbox.Any())
+    {
+        <div class="allgood">
+            <span>📨</span>
+            <p>No events yet.</p>
+        </div>
+    }
+
+</div>
+
+@section Scripts {
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+    <script src="~/js/viz.js" asp-append-version="true"></script>
+
+    <script>
+        fcViz(@Html.Raw(cfg));
+    </script>
+}

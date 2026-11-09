@@ -1,38 +1,240 @@
 @model List<Listing>
-@{ ViewData["Title"] = "Fresh from the farm"; }
-<section class="hero">
-  <div>
-    <span class="eyebrow">DIRECT FROM FARMERS · FAIR PRICES · ALWAYS FRESH</span>
-    <h1 class="words"><span style="--w:0">Straight</span> <span style="--w:1">from</span> <span style="--w:2">the</span> <span style="--w:3">farm.</span><br /><span style="--w:4"><em>Naturally</em></span> <span style="--w:5"><em>yours.</em></span></h1>
-    <p class="lead-fc">Buy harvest-fresh produce straight from verified farmers, or list your own crop and reach buyers in minutes. Clear prices, live stock, no middlemen.</p>
-    <div class="cta">
-      <a class="btn-fc" asp-controller="Market" asp-action="Index">SHOP FRESH PRODUCE →</a>
-      @if (!User.Identity.IsAuthenticated) { <a class="btn-fc-ghost" asp-controller="Account" asp-action="Register" asp-route-role="Farmer">🧑‍🌾 Sell your harvest</a> }
+@{
+  ViewData["Title"] = "Fresh from the farm";
+  var words = Model.Select(l => l.Produce.Name).Distinct().ToList();
+  if (!words.Any()) words = new List<string> { "Tomatoes", "Onions", "Carrots", "Chillies", "Bananas" };
+  var wordsCsv = string.Join(",", words);
+  var ticker = Model.Any()
+    ? Model.Select(l => l.Produce.Emoji + " " + l.Produce.Name + " · ₹" + l.PricePerUnit.ToString("0.##") + "/" + l.Unit).ToList()
+    : new List<string> { "🍅 Tomato", "🧅 Onion", "🥔 Potato", "🥕 Carrot", "🌶️ Green Chilli", "🥬 Cabbage", "🍌 Banana" };
+  var live = Model.Take(4).ToList();
+  var crops = new[] { "🌱", "🌾", "🌽", "🥬", "🌱", "🌾", "🍅", "🌱", "🌽", "🌾", "🥕", "🌱", "🌾", "🌽", "🥬", "🌱" };
+  var trust = new[] {
+    ("🔒", "Stock safety", "Two buyers can't take the last kilo.", "Every order re-checks stock inside the database in one atomic step, so stock never goes negative."),
+    ("⚡", "Fast price insights", "Popular prices load instantly.", "Frequent price queries are served from a cache, and fall back to the database if the cache is down."),
+    ("🚚", "Automatic logistics", "Transport is booked for you.", "A background worker books transport after every order, retries on failure, and never makes duplicate bookings."),
+    ("📈", "Transparent prices", "Min, max and modal, always labelled.", "Every price shows its source, date and unit. Sample data is clearly marked as sample data."),
+    ("🛡️", "Role-based access", "Everyone sees only their own data.", "Farmers manage their listings, buyers see their own orders, and admins oversee the marketplace."),
+    ("📱", "Works on any screen", "Phone, tablet or desktop.", "Responsive, keyboard friendly, with light and dark themes and reduced-motion support.")
+  };
+}
+<link rel="stylesheet" href="~/css/hero.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/home.css" asp-append-version="true" />
+
+<section class="scene" id="scene">
+  <div class="sky" aria-hidden="true">
+    <div class="stars">@for (var s = 0; s < 18; s++) { <i style="left:@((s * 37) % 100)%;top:@((s * 23) % 46)%;--d:@(s % 6)s"></i> }</div>
+    <div class="sun"><i></i></div>
+    <div class="cloud" style="--t:8%;--w:170px;--s:55s;--dl:-12s"></div>
+    <div class="cloud" style="--t:24%;--w:120px;--s:78s;--dl:-44s"></div>
+    <div class="cloud" style="--t:15%;--w:90px;--s:96s;--dl:-70s"></div>
+    <svg class="bird" viewBox="0 0 40 16" style="--t:20%;--s:28s;--dl:-4s"><path d="M2 12 Q11 0 20 10 Q29 0 38 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    <svg class="bird" viewBox="0 0 40 16" style="--t:12%;--s:34s;--dl:-16s;width:24px"><path d="M2 12 Q11 0 20 10 Q29 0 38 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    <svg class="bird" viewBox="0 0 40 16" style="--t:30%;--s:40s;--dl:-27s;width:28px"><path d="M2 12 Q11 0 20 10 Q29 0 38 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    <svg class="hill h1" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0 170 C240 70 480 230 720 150 S1200 50 1440 140 V320 H0Z"/></svg>
+    <svg class="hill h2" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0 120 C200 200 460 60 740 130 S1230 210 1440 110 V320 H0Z"/></svg>
+    <svg class="hill h3" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0 110 C260 40 520 190 800 120 S1200 40 1440 100 V320 H0Z"/></svg>
+    <div class="crops">@for (var c = 0; c < crops.Length; c++) { <span style="--i:@c">@crops[c]</span> }</div>
+    <svg class="tractor" viewBox="0 0 130 80">
+      <g class="body">
+        <rect x="72" y="34" width="44" height="20" rx="5" fill="#3F7653"/><rect x="104" y="16" width="5" height="20" rx="2" fill="#555"/>
+        <rect x="36" y="12" width="34" height="44" rx="5" fill="#234B36"/><rect x="42" y="18" width="22" height="16" rx="3" fill="#cfe8d8"/>
+        <g class="wh"><circle cx="50" cy="56" r="20" fill="#1d261c"/><circle cx="50" cy="56" r="9" fill="#E7A642"/><path d="M50 40V72M34 56H66" stroke="#1d261c" stroke-width="3"/></g>
+        <g class="wh s"><circle cx="104" cy="64" r="12" fill="#1d261c"/><circle cx="104" cy="64" r="5" fill="#E7A642"/><path d="M104 54V74M94 64H114" stroke="#1d261c" stroke-width="2.4"/></g>
+      </g>
+    </svg>
+  </div>
+  <div class="glow"></div>
+
+  <div class="content">
+    <div>
+      <span class="eyebrow">DIRECT FROM FARMERS · FAIR PRICES · ALWAYS FRESH</span>
+      <h1 class="words"><span style="--w:0">Straight</span> <span style="--w:1">from</span> <span style="--w:2">the</span> <span style="--w:3">farm.</span><br /><span style="--w:4"><em>Naturally</em></span> <span style="--w:5"><em>yours.</em></span></h1>
+      <p class="rotline">Fresh today: <b class="rot" data-words="@wordsCsv" aria-live="off"></b></p>
+      <p class="lead-fc">FarmConnect connects farmers and buyers directly. Farmers publish what they harvested, buyers order exactly what they need, and everyone can see fair market prices, with stock, orders and transport kept in sync automatically.</p>
+      <div class="cta">
+        <a class="btn-fc shine" asp-controller="Market" asp-action="Index">SHOP FRESH PRODUCE →</a>
+        @if (!User.Identity.IsAuthenticated) { <a class="btn-fc-ghost" asp-controller="Account" asp-action="Register" asp-route-role="Farmer">🧑‍🌾 Sell your harvest</a> }
+      </div>
+      <div class="mini-stats">
+        <div><b data-count="@ViewBag.Farmers">0</b><small>Partner farmers</small></div>
+        <div><b data-count="@ViewBag.Listings">0</b><small>Live listings</small></div>
+        <div><b data-count="@ViewBag.Orders">0</b><small>Orders placed</small></div>
+      </div>
     </div>
-    <div class="mini-stats">
-      <div><b data-count="@ViewBag.Farmers">0</b><small>Partner farmers</small></div>
-      <div><b data-count="@ViewBag.Listings">0</b><small>Live listings</small></div>
-      <div><b data-count="@ViewBag.Orders">0</b><small>Orders placed</small></div>
+
+    <div class="live">
+      <div class="fcard fchip a">⚡ Live from the farm</div>
+      <div class="fcard fchip b">🚚 Transport booked automatically</div>
+      @for (var n = 0; n < live.Count; n++)
+      {
+        var l = live[n];
+        var tot = l.QuantityAvailable + l.QuantitySold;
+        var pct = tot > 0 ? (int)Math.Round(l.QuantityAvailable / tot * 100) : 0;
+        <a class="lc @(n == 0 ? "on" : "")" asp-controller="Market" asp-action="Details" asp-route-id="@l.Id" style="--w:@pct%">
+          <div class="lc-top"><span class="livepill"><i></i>LIVE</span><span class="tagg">GRADE @l.Grade</span></div>
+          <div class="lc-emoji" aria-hidden="true">@l.Produce.Emoji</div>
+          <h3>@(l.Produce.Name + (string.IsNullOrEmpty(l.Variety) ? "" : " · " + l.Variety))</h3>
+          <p class="meta">🌾 @l.Farmer.FullName · 📍 @l.Location · harvested @l.HarvestDate.ToString("dd MMM")</p>
+          <div class="lc-bar"><i></i></div>
+          <div class="lc-row"><span>@l.QuantityAvailable.ToString("0.##") @l.Unit left · min @l.MinOrderQty.ToString("0.##")</span><b>₹@l.PricePerUnit.ToString("0.##")<small> / @l.Unit</small></b></div>
+        </a>
+      }
+      @if (!live.Any())
+      {
+        <div class="lc on"><div class="lc-top"><span class="livepill"><i></i>LIVE</span></div><div class="lc-emoji" aria-hidden="true">🌱</div><h3>Be the first to list</h3><p class="meta">Farmers: publish your harvest and buyers will see it here instantly.</p></div>
+      }
+      @if (live.Count > 1) { <div class="dots">@for (var d = 0; d < live.Count; d++) { <button type="button" class="@(d == 0 ? "on" : "")" aria-label="Show listing @(d + 1)"></button> }</div> }
     </div>
   </div>
-  <partial name="_Journey" />
+  <a class="cue" href="#show" aria-label="Scroll down">↓</a>
 </section>
 
-<h2 class="sec reveal">Fresh right now</h2>
-<div class="grid">
-  @foreach (var l in Model) { <partial name="_ListingCard" model="l" /> }
-  @if (!Model.Any()) { <div class="empty">No produce listed yet — farmers can publish the first listing!</div> }
+<div class="marquee" aria-hidden="true"><div class="track">@for (var k = 0; k < 2; k++) { foreach (var t in ticker) { <span>@t</span> } }</div></div>
+
+<div class="below">
+  <div class="blobs" aria-hidden="true"><span></span><span></span></div>
+
+  <h2 class="sec h2x reveal">What is FarmConnect?</h2>
+  <p class="lead-fc reveal" style="opacity:1;animation:none;max-width:760px">An online marketplace built for Indian farm produce. No middlemen, no guesswork: listings show grade, harvest date, minimum order and live stock; orders can never oversell; and price history helps both sides agree on a fair rate.</p>
+
+  <section class="showcase spot reveal" id="show">
+    <div class="sc-tabs" role="tablist" aria-label="Who is FarmConnect for">
+      <button type="button" role="tab" id="s1" class="on" aria-selected="true"><span class="ti">🧑‍🌾</span><span><b>Farmers</b><small>List, sell, earn</small></span><i class="pg"></i></button>
+      <button type="button" role="tab" id="s2" aria-selected="false"><span class="ti">🛒</span><span><b>Buyers</b><small>Browse, order, track</small></span><i class="pg"></i></button>
+      <button type="button" role="tab" id="s3" aria-selected="false"><span class="ti">🛡️</span><span><b>Admins</b><small>Oversee and assign</small></span><i class="pg"></i></button>
+    </div>
+
+    <div class="sc-pane on" role="tabpanel" aria-labelledby="s1">
+      <div class="sc-copy"><h3>Publish in a minute, sell with confidence</h3><ul>
+        <li><b>List in a minute</b>: produce, variety, grade, quantity, minimum order, price and photo.</li>
+        <li><b>Never oversell</b>: stock is reserved atomically the moment an order is placed.</li>
+        <li><b>Run your orders</b>: accept, reject or complete, and watch the status timeline update.</li>
+        <li><b>Know your earnings</b>: daily, weekly, monthly or custom reports with recorded selling costs.</li></ul>
+        <a class="btn-fc" asp-controller="Account" asp-action="Register" asp-route-role="Farmer">Start selling</a></div>
+      <div class="mock" aria-hidden="true"><div class="mk-bar"><i></i><i></i><i></i><span>Add produce · illustrative</span></div>
+        <div class="mk-body">
+          <div class="rowf" style="--d:.2s"><label>Produce</label><b><span class="tw" style="--n:6;--d:.4s">Tomato</span></b></div>
+          <div class="rowf" style="--d:.7s"><label>Grade</label><b><span class="tw" style="--n:7;--d:.9s">Grade A</span></b></div>
+          <div class="rowf" style="--d:1.2s"><label>Quantity</label><b><span class="tw" style="--n:6;--d:1.4s">500 kg</span></b></div>
+          <div class="rowf" style="--d:1.7s"><label>Minimum order</label><b><span class="tw" style="--n:5;--d:1.9s">50 kg</span></b></div>
+          <div class="rowf" style="--d:2.2s"><label>Price</label><b><span class="tw" style="--n:7;--d:2.4s">₹25 / kg</span></b></div>
+          <button type="button" class="pub" tabindex="-1">PUBLISH LISTING</button>
+          <div class="pop"><b>🍅 Hybrid Tomato · ₹25/kg</b><div class="small text-muted">Live for buyers · 500 kg available</div><div class="lb"><i></i></div></div>
+        </div></div>
+    </div>
+
+    <div class="sc-pane" role="tabpanel" aria-labelledby="s2">
+      <div class="sc-copy"><h3>Order exactly what you need</h3><ul>
+        <li><b>Search and filter</b>: by produce, grade, location and price, then sort low to high.</li>
+        <li><b>Order with confidence</b>: pick a quantity with +/−, see the total, and get minimum-order and stock checks.</li>
+        <li><b>Transport arranged</b>: a transport booking is created automatically after you order.</li>
+        <li><b>Track everything</b>: order progress, agreed price and transport status in one place.</li></ul>
+        <a class="btn-fc" asp-controller="Market" asp-action="Index">Browse produce</a></div>
+      <div class="mock" aria-hidden="true"><div class="mk-bar"><i></i><i></i><i></i><span>Order · illustrative</span></div>
+        <div class="mk-body bm"><div class="em">🍅</div><b class="serif fs-4">Hybrid Tomato</b><div class="text-muted small">₹25 / kg · min order 50 kg · 500 kg available</div>
+          <div class="stp"><span class="b">−</span><b><span id="dq">100</span> kg</b><span class="b">+</span></div>
+          <div class="dm ok" id="dm">✓ Valid quantity</div>
+          <div class="tot"><span class="text-muted">Total</span><b id="dt">₹2,500</b></div>
+          <button type="button" class="pub" style="animation:none" tabindex="-1">ADD TO ORDER</button>
+          <div class="chips2"><span style="animation-delay:.3s">📦 Stock reserved</span><span style="animation-delay:.6s">🚚 Transport auto-booked</span></div></div></div>
+    </div>
+
+    <div class="sc-pane" role="tabpanel" aria-labelledby="s3">
+      <div class="sc-copy"><h3>One control room for the marketplace</h3><ul>
+        <li><b>Oversee the marketplace</b>: users, listings and all orders on one dashboard.</li>
+        <li><b>Handle logistics</b>: see events and bookings, and assign a transport partner when none matched.</li>
+        <li><b>Maintain price data</b>: add market prices; the cache refreshes automatically.</li></ul></div>
+      <div class="mock" aria-hidden="true"><div class="mk-bar"><i></i><i></i><i></i><span>Dashboard · illustrative data</span></div>
+        <div class="mk-body am">
+          <div class="kp"><div style="--i:0"><b>128</b><small>Users</small></div><div style="--i:1"><b>42</b><small>Listings</small></div><div style="--i:2"><b>9</b><small>Orders today</small></div></div>
+          <div class="gr"><div class="bars"><i style="--h:35%;--i:0"></i><i style="--h:55%;--i:1"></i><i style="--h:42%;--i:2"></i><i style="--h:78%;--i:3"></i><i style="--h:62%;--i:4"></i><i style="--h:92%;--i:5"></i><i style="--h:70%;--i:6"></i></div><div class="donut"></div></div>
+          <div class="leds"><span><i></i>Event queue OK</span><span><i></i>Price cache OK</span><span><i></i>Transport OK</span></div>
+        </div></div>
+    </div>
+  </section>
+
+  <h2 class="sec h2x reveal">Try an order, risk free</h2>
+  <section class="sim spot reveal" id="sim">
+    <div class="sim-l">
+      <span class="pill-sample">SIMULATION · NOTHING IS SAVED</span>
+      <h3 class="mt-2">🍅 Try placing an order</h3>
+      <p class="text-muted small">Sample listing: Hybrid Tomato · 500 kg available · minimum order 50 kg · ₹25/kg. Drag the slider to see the same checks FarmConnect runs on a real order.</p>
+      <div class="row2"><label for="sq">Quantity</label><b><span id="sqv">100</span> kg</b></div>
+      <input id="sq" type="range" min="0" max="600" step="10" value="100" />
+      <div class="smsg ok" id="smsg" aria-live="polite"></div>
+      <div class="row2"><span class="text-muted">Total</span><span class="stot" id="stot">₹2,500</span></div>
+      <div class="sbar"><i id="sbar"></i></div><small class="text-muted" id="sleft">400 kg left after this order</small>
+      <div class="d-flex gap-2 mt-3 flex-wrap"><button class="btn-fc" id="sgo" type="button">PLACE SAMPLE ORDER</button><button class="btn-fc-ghost" id="srst" type="button">Reset</button></div>
+    </div>
+    <div class="sim-r">
+      <ol class="pl" aria-label="What happens after an order">
+        <li><span>1</span>Stock checked and reserved</li>
+        <li><span>2</span>“Order placed” event saved safely</li>
+        <li><span>3</span>Transport partner matched</li>
+        <li><span>4</span>Order appears in the farmer's list</li>
+        <li><span>5</span>Waiting for the farmer to accept</li>
+      </ol>
+      <div class="road" aria-hidden="true"><small style="left:0">FARM</small><small style="right:0">BUYER</small><em id="struck">🚚</em></div>
+    </div>
+  </section>
+
+  <h2 class="sec h2x reveal">Built to be trusted</h2>
+  <div class="flips" id="trust">
+    @foreach (var (ico, ttl, brief, more) in trust)
+    {
+      <div class="flip reveal" tabindex="0" role="button" aria-label="@ttl: show details">
+        <div class="in2">
+          <div class="face front spot"><div class="ic">@ico</div><h3>@ttl</h3><p>@brief</p><span class="hint">HOVER OR TAP ↻</span></div>
+          <div class="face back"><h3>@ttl</h3><p>@more</p></div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <h2 class="sec h2x reveal">Fresh right now</h2>
+  <div class="grid" id="fresh">
+    @foreach (var l in Model) { <partial name="_ListingCard" model="l" /> }
+    @if (!Model.Any()) { <div class="empty">No produce listed yet. Farmers can publish the first listing!</div> }
+  </div>
+
+  
+    <h2 class="sec h2x reveal">Questions, answered</h2>
+  <section class="faq2 reveal" id="faq2">
+    <div class="fq-tools">
+      <div class="fq-search"><span aria-hidden="true">🔍</span><input type="search" id="fqs" placeholder="Search questions…" aria-label="Search questions" /></div>
+      <div class="fq-cats" role="group" aria-label="Filter questions">
+        <button type="button" class="on" data-c="all">All</button><button type="button" data-c="orders">Orders</button><button type="button" data-c="prices">Prices</button><button type="button" data-c="transport">Transport</button><button type="button" data-c="account">Account</button>
+      </div>
+      <span class="fq-auto"><i></i>Auto-playing. Click anything to take control.</span>
+    </div>
+    <div class="fq-list">
+      <article class="fq" data-c="prices"><h3><button type="button" class="fq-q" aria-expanded="false"><span class="qi">💹</span><span class="qt">Is the price history live market data?</span><span class="chev">＋</span></button></h3>
+        <div class="fa"><div><p>Not unless real data has been imported. Demo data is clearly labelled “Sample data”, and every record shows its source, date and unit.</p><div class="vote"><span>Was this helpful?</span><button type="button" data-v="up" aria-label="Yes">👍</button><button type="button" data-v="down" aria-label="No">👎</button><em></em></div></div></div></article>
+      <article class="fq" data-c="transport"><h3><button type="button" class="fq-q" aria-expanded="false"><span class="qi">🚚</span><span class="qt">Does FarmConnect actually dispatch a truck?</span><span class="chev">＋</span></button></h3>
+        <div class="fa"><div><p>No. It creates a transport booking record with an estimated cost, using demo partners. A real dispatch would need a logistics provider integration.</p><div class="vote"><span>Was this helpful?</span><button type="button" data-v="up" aria-label="Yes">👍</button><button type="button" data-v="down" aria-label="No">👎</button><em></em></div></div></div></article>
+      <article class="fq" data-c="orders"><h3><button type="button" class="fq-q" aria-expanded="false"><span class="qi">🔒</span><span class="qt">Can two buyers order the same last kilo?</span><span class="chev">＋</span></button></h3>
+        <div class="fa"><div><p>No. Stock is checked again inside the database at the moment of ordering, in a single step, so stock can never go negative.</p><div class="vote"><span>Was this helpful?</span><button type="button" data-v="up" aria-label="Yes">👍</button><button type="button" data-v="down" aria-label="No">👎</button><em></em></div></div></div></article>
+      <article class="fq" data-c="orders"><h3><button type="button" class="fq-q" aria-expanded="false"><span class="qi">↩️</span><span class="qt">What if an order is rejected or cancelled?</span><span class="chev">＋</span></button></h3>
+        <div class="fa"><div><p>The reserved stock goes back to the listing and the transport booking is cancelled.</p><div class="vote"><span>Was this helpful?</span><button type="button" data-v="up" aria-label="Yes">👍</button><button type="button" data-v="down" aria-label="No">👎</button><em></em></div></div></div></article>
+      <article class="fq" data-c="transport"><h3><button type="button" class="fq-q" aria-expanded="false"><span class="qi">⚖️</span><span class="qt">Which units are supported?</span><span class="chev">＋</span></button></h3>
+        <div class="fa"><div><p>Listings can use kg, quintal, ton, dozen or piece. Transport booking converts kg, quintal and ton automatically; other units are assigned by an admin.</p><div class="vote"><span>Was this helpful?</span><button type="button" data-v="up" aria-label="Yes">👍</button><button type="button" data-v="down" aria-label="No">👎</button><em></em></div></div></div></article>
+      <article class="fq" data-c="account"><h3><button type="button" class="fq-q" aria-expanded="false"><span class="qi">🛡️</span><span class="qt">Who can see my data?</span><span class="chev">＋</span></button></h3>
+        <div class="fa"><div><p>Farmers manage only their own listings, and buyers see only their own orders. Passwords are stored as secure hashes, never as plain text.</p><div class="vote"><span>Was this helpful?</span><button type="button" data-v="up" aria-label="Yes">👍</button><button type="button" data-v="down" aria-label="No">👎</button><em></em></div></div></div></article>
+      <article class="fq" data-c="account"><h3><button type="button" class="fq-q" aria-expanded="false"><span class="qi">💳</span><span class="qt">Can I pay on the platform?</span><span class="chev">＋</span></button></h3>
+        <div class="fa"><div><p>Not yet. This version records orders and agreed prices; payment gateways are a later milestone.</p><div class="vote"><span>Was this helpful?</span><button type="button" data-v="up" aria-label="Yes">👍</button><button type="button" data-v="down" aria-label="No">👎</button><em></em></div></div></div></article>
+    </div>
+    <p class="fq-empty" hidden>No question matches that. Try another word or pick “All”.</p>
+  </section>  
+
+
+  @if (!User.Identity.IsAuthenticated)
+  {
+    <div class="band reveal"><h2>Ready to grow with us?</h2><div class="d-flex gap-2 flex-wrap"><a class="btn-fc" asp-controller="Account" asp-action="Register">Create free account</a><a class="btn-fc-ghost text-white border-white" asp-controller="Account" asp-action="Login">Login</a></div></div>
+  }
 </div>
 
-<h2 class="sec reveal">How FarmConnect works</h2>
-<div class="feat">
-  <div class="reveal hov"><div class="step-n">1</div><h3>Farmers list</h3><p>Add produce with grade, quantity, minimum order and price in under a minute.</p></div>
-  <div class="reveal hov"><div class="step-n">2</div><h3>Buyers order</h3><p>Pick a quantity — we check minimum order and live stock before confirming.</p></div>
-  <div class="reveal hov"><div class="step-n">3</div><h3>Farmers confirm</h3><p>Accept, complete and track every order with a clear status timeline.</p></div>
-  <div class="reveal hov"><div class="step-n">4</div><h3>Everyone sees prices</h3><p>Market price history helps both sides agree on a fair rate.</p></div>
-</div>
-
-@if (!User.Identity.IsAuthenticated)
-{
-  <div class="band reveal"><h2>Ready to grow with us?</h2><div class="d-flex gap-2 flex-wrap"><a class="btn-fc" asp-controller="Account" asp-action="Register">Create free account</a><a class="btn-fc-ghost text-white border-white" asp-controller="Account" asp-action="Login">Login</a></div></div>
+@section Scripts {
+  <script src="~/js/hero.js" asp-append-version="true"></script>
+  <script src="~/js/home.js" asp-append-version="true"></script>
 }

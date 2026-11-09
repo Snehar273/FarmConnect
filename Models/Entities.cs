@@ -3,6 +3,8 @@ namespace FarmConnect.Models;
 
 public enum ListingStatus { Active, Inactive, SoldOut }
 public enum OrderStatus { Placed, Accepted, Rejected, Completed, Cancelled }
+public enum BookingStatus { PendingAssignment, Assigned, Confirmed, PickedUp, InTransit, Delivered, Failed, Cancelled }
+public enum OutboxStatus { Pending, Processing, Processed, Failed }
 
 public class ApplicationUser : IdentityUser
 {
@@ -64,6 +66,7 @@ public class Order
     public DateTime? CompletedAt { get; set; }
     public decimal TotalAmount { get; set; }
     public List<OrderItem> Items { get; set; } = new();
+    public LogisticsBooking Logistics { get; set; }
 }
 public class OrderItem
 {
@@ -72,10 +75,10 @@ public class OrderItem
     public Order Order { get; set; }
     public int ListingId { get; set; }
     public Listing Listing { get; set; }
-    [StringLength(120)] public string ProduceName { get; set; }   // snapshot
-    [StringLength(20)] public string Unit { get; set; }           // snapshot
+    [StringLength(120)] public string ProduceName { get; set; }
+    [StringLength(20)] public string Unit { get; set; }
     public decimal Quantity { get; set; }
-    public decimal AgreedUnitPrice { get; set; }                  // snapshot - never recalc from Listing
+    public decimal AgreedUnitPrice { get; set; }
     public decimal LineTotal => Quantity * AgreedUnitPrice;
 }
 public class PriceHistory
@@ -91,7 +94,7 @@ public class PriceHistory
     [Required, StringLength(20)] public string Unit { get; set; } = "kg";
     [StringLength(120)] public string Source { get; set; }
 }
-public class PriceHistoryView   // keyless, maps to SQL view vw_PriceHistory
+public class PriceHistoryView
 {
     public int PriceHistoryId { get; set; }
     public int ProduceId { get; set; }
@@ -113,4 +116,46 @@ public class SellingExpense
     [Required, StringLength(200)] public string Description { get; set; }
     public decimal Amount { get; set; }
     public DateTime ExpenseDate { get; set; } = DateTime.Now;
+}
+
+// ---------- M2 ----------
+public class LogisticsPartner
+{
+    public int LogisticsPartnerId { get; set; }
+    [Required, StringLength(100)] public string PartnerName { get; set; }
+    [StringLength(15)] public string ContactNumber { get; set; }
+    [StringLength(300)] public string PickupAreas { get; set; }
+    [StringLength(300)] public string DeliveryAreas { get; set; }
+    [StringLength(50)] public string VehicleType { get; set; }
+    public decimal CapacityKg { get; set; }
+    public decimal RatePerKg { get; set; }
+    public bool IsAvailable { get; set; } = true;
+    [StringLength(20)] public string Status { get; set; } = "Active";
+}
+public class LogisticsBooking
+{
+    public int BookingId { get; set; }
+    public int OrderId { get; set; }
+    public Order Order { get; set; }
+    public int? LogisticsPartnerId { get; set; }
+    public LogisticsPartner Partner { get; set; }
+    [StringLength(80)] public string PickupLocation { get; set; }
+    [StringLength(200)] public string DeliveryLocation { get; set; }
+    public decimal? QuantityKg { get; set; }
+    public decimal? EstimatedCost { get; set; }
+    public BookingStatus BookingStatus { get; set; } = BookingStatus.PendingAssignment;
+    [StringLength(300)] public string Note { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+}
+public class OutboxEvent
+{
+    public Guid EventId { get; set; }
+    [Required, StringLength(60)] public string EventType { get; set; }
+    [Required] public string Payload { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime? ProcessedAt { get; set; }
+    public OutboxStatus Status { get; set; } = OutboxStatus.Pending;
+    public int RetryCount { get; set; }
+    [StringLength(500)] public string ErrorMessage { get; set; }
 }

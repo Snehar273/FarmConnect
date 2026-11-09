@@ -34,3 +34,5 @@ Thumbs.db
 
 wwwroot/uploads/*
 !wwwroot/uploads/.gitkeep
+appsettings.*.local.json
+secrets.json

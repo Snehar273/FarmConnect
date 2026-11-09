@@ -1,0 +1,13 @@
+@model string[]
+<div class="tipcar" data-tipcar data-dir="1" role="region" aria-roledescription="carousel" aria-label="Helpful tips">
+  <div class="tc-head"><span class="pill-sample">💡 TIPS</span><div class="tc-nav"><button type="button" data-prev aria-label="Previous tip">‹</button><button type="button" data-next aria-label="Next tip">›</button></div></div>
+  <div class="tc-stage" aria-live="polite">
+    @for (var i = 0; i < Model.Length; i++)
+    {
+      var p = Model[i].Split('|');
+      <article class="tc-slide @(i == 0 ? "on" : "")"><span class="tc-ico" aria-hidden="true">@p[0]</span><div><h4>@p[1]</h4><p>@p[2]</p></div></article>
+    }
+  </div>
+  <div class="tc-foot"><div class="tc-dots">@for (var d = 0; d < Model.Length; d++) { <button type="button" class="@(d == 0 ? "on" : "")" aria-label="Show tip @(d + 1)"></button> }</div><span class="tc-count">1 / @Model.Length</span></div>
+  <div class="tc-bar" aria-hidden="true"><i></i></div>
+</div>

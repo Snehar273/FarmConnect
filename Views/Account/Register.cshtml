@@ -1,26 +1,78 @@
 @model RegisterVm
 @{ ViewData["Title"] = "Register"; }
-<div class="auth reveal">
-  <div class="auth-side"><h2>Grow with FarmConnect.</h2><p>Farmers list produce. Buyers order fresh. Everyone sees fair prices.</p><div class="big">🥕</div></div>
-  <form class="auth-form" method="post" asp-action="Register">
-    <h2>Create account</h2>
-    <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
-    <div class="role-pick">
-      <label><input type="radio" asp-for="Role" value="Farmer" /><span>🧑‍🌾 I'm a Farmer</span></label>
-      <label><input type="radio" asp-for="Role" value="Buyer" /><span>🛒 I'm a Buyer</span></label>
+<link rel="stylesheet" href="~/css/viz.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/register.css" asp-append-version="true" />
+<section class="scene authscene reg" data-px>
+  <partial name="_SceneBg" />
+  <div class="glow"></div>
+  <div class="content">
+    <div class="auth-copy">
+      <span class="eyebrow">JOIN FARMCONNECT</span>
+      <h1 class="words"><span style="--w:0">Grow</span> <span style="--w:1">with</span> <span style="--w:2"><em>FarmConnect.</em></span></h1>
+      <p class="lead-fc">Farmers list produce. Buyers order fresh. Everyone sees fair prices, honest stock and clear order status.</p>
+      <ul class="perks">
+        <li style="animation-delay:.9s"><span class="pi">🎯</span>Choose how you will use FarmConnect</li>
+        <li style="animation-delay:1.1s"><span class="pi" style="animation-delay:-1s">📝</span>Four quick steps, about a minute</li>
+        <li style="animation-delay:1.3s"><span class="pi" style="animation-delay:-2s">🔐</span>Your password is stored only as a hash</li>
+      </ul>
     </div>
-    <span asp-validation-for="Role" class="text-danger small"></span>
-    <label asp-for="FullName" class="mt-3"></label><input asp-for="FullName" class="form-control" /><span asp-validation-for="FullName" class="text-danger small"></span>
-    <div class="row g-3 mt-0">
-      <div class="col-md-6"><label asp-for="Email"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email" class="text-danger small"></span></div>
-      <div class="col-md-6"><label asp-for="Mobile"></label><input asp-for="Mobile" class="form-control" inputmode="numeric" /><span asp-validation-for="Mobile" class="text-danger small"></span></div>
-      <div class="col-md-6"><label asp-for="Password"></label><input asp-for="Password" class="form-control" /><span asp-validation-for="Password" class="text-danger small"></span></div>
-      <div class="col-md-6"><label asp-for="ConfirmPassword"></label><input asp-for="ConfirmPassword" class="form-control" /><span asp-validation-for="ConfirmPassword" class="text-danger small"></span></div>
-    </div>
-    <label asp-for="Location" class="mt-3"></label><input asp-for="Location" class="form-control" placeholder="e.g. Erode" />
-    <small class="text-muted">Min 8 chars with upper, lower, digit and symbol.</small>
-    <button class="btn-fc w-100 mt-3">CREATE ACCOUNT</button>
-    <p class="mt-3 small text-center">Already registered? <a asp-action="Login">Login</a></p>
-  </form>
-</div>
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+
+    <form class="auth-form glass regform" method="post" asp-action="Register" data-progress data-wizard data-loading data-role="">
+      <div class="fhead fx" style="--i:0"><span class="fh-ico">🌱</span><div><h2>Create your account</h2><p>It only takes a minute</p></div></div>
+      <div class="wz-steps fx" style="--i:1"><div class="s on"><b>1</b><span>Role</span></div><i></i><div class="s"><b>2</b><span>You</span></div><i></i><div class="s"><b>3</b><span>Security</span></div><i></i><div class="s"><b>4</b><span>Review</span></div></div>
+      <div class="formprog fx" style="--i:1" aria-hidden="true"><i></i></div><small class="text-muted" id="progTxt">0% complete</small>
+      <div asp-validation-summary="ModelOnly" class="fmsg bigmsg"></div>
+
+      <section class="wz-step on" data-step="0">
+        <h3 class="wz-h">How will you use FarmConnect?</h3>
+        <div class="rolecards">
+          <label class="rc"><input type="radio" asp-for="Role" value="Farmer" /><span class="rc-in"><span class="rc-e">🧑‍🌾</span><b>I'm a Farmer</b><small>I grow and sell produce</small>
+            <ul class="rc-list"><li>List produce and set prices</li><li>Accept and complete orders</li><li>See earnings and costs</li></ul></span></label>
+          <label class="rc"><input type="radio" asp-for="Role" value="Buyer" /><span class="rc-in"><span class="rc-e">🛒</span><b>I'm a Buyer</b><small>I want fresh produce</small>
+            <ul class="rc-list"><li>Browse live stock</li><li>Order with a simple +/− picker</li><li>Follow every order step</li></ul></span></label>
+        </div>
+        <p id="roleDesc" class="small text-muted mt-2 mb-0" aria-live="polite">Pick a role to continue.</p>
+        <span asp-validation-for="Role" class="fmsg"></span>
+      </section>
+
+      <section class="wz-step" data-step="1" hidden>
+        <h3 class="wz-h">Tell us about you</h3>
+        <div class="fwrap"><div class="ff"><span class="ico" aria-hidden="true">👤</span><input asp-for="FullName" class="form-control" placeholder=" " autocomplete="name" data-hint="Please enter your full name" /><label asp-for="FullName"></label><span class="tick" aria-hidden="true"></span></div><span asp-validation-for="FullName" class="fmsg"></span></div>
+        <div class="fwrap"><div class="ff"><span class="ico" aria-hidden="true">✉️</span><input asp-for="Email" class="form-control" placeholder=" " autocomplete="email" data-hint="Enter a valid email address" /><label asp-for="Email"></label><span class="tick" aria-hidden="true"></span></div><span asp-validation-for="Email" class="fmsg"></span></div>
+        <div class="fwrap"><div class="ff"><span class="ico" aria-hidden="true">📱</span><input asp-for="Mobile" class="form-control" placeholder=" " inputmode="numeric" autocomplete="tel" maxlength="10" data-hint="10 digits, starting with 6, 7, 8 or 9" /><label asp-for="Mobile"></label><span class="tick" aria-hidden="true"></span></div><span asp-validation-for="Mobile" class="fmsg"></span></div>
+        <div class="fwrap"><div class="ff"><span class="ico" aria-hidden="true">📍</span><input asp-for="Location" class="form-control" placeholder=" " autocomplete="address-level2" /><label asp-for="Location">Your city (farm city or delivery city)</label><span class="tick" aria-hidden="true"></span></div>
+          <div class="cityq" aria-label="Quick pick a city"><button type="button" data-city="Erode">Erode</button><button type="button" data-city="Salem">Salem</button><button type="button" data-city="Coimbatore">Coimbatore</button><button type="button" data-city="Tiruppur">Tiruppur</button><button type="button" data-city="Namakkal">Namakkal</button></div></div>
+      </section>
+
+      <section class="wz-step" data-step="2" hidden>
+        <h3 class="wz-h">Secure your account</h3>
+        <div class="fwrap"><div class="ff hasbtn"><span class="ico" aria-hidden="true">🔒</span><input asp-for="Password" class="form-control" placeholder=" " autocomplete="new-password" data-rules="strong" data-hint="Use the checklist below" /><label asp-for="Password"></label><span class="tick" aria-hidden="true"></span><button type="button" data-pw aria-label="Show or hide password">👁️</button></div>
+          <div class="meter" aria-hidden="true"><i></i></div><small id="pwHint" class="text-muted">Too weak</small><small class="caps" hidden>⇪ Caps Lock is on</small>
+          <ul class="pwlist" aria-label="Password rules"><li>8+ characters</li><li>Upper and lower case</li><li>A number</li><li>A symbol</li></ul>
+          <button type="button" class="genpw" data-gen>✨ Suggest a strong password</button>
+          <span asp-validation-for="Password" class="fmsg"></span></div>
+        <div class="fwrap"><div class="ff"><span class="ico" aria-hidden="true">🔁</span><input asp-for="ConfirmPassword" class="form-control" placeholder=" " autocomplete="new-password" data-hint="Passwords must match" /><label asp-for="ConfirmPassword"></label><span class="tick" aria-hidden="true"></span></div><small id="matchHint"></small><span asp-validation-for="ConfirmPassword" class="fmsg"></span></div>
+      </section>
+
+      <section class="wz-step" data-step="3" hidden>
+        <h3 class="wz-h">Review and create</h3>
+        <div class="preview">
+          <span class="pv-av" data-pv="avatar" aria-hidden="true">?</span>
+          <div class="pv-rows"><b data-pv="name">Your name</b><span data-pv="role">—</span><span>✉️ <span data-pv="email">—</span></span><span>📱 <span data-pv="mobile">—</span></span><span>📍 <span data-pv="city">Not set</span></span></div>
+        </div>
+        <ul class="ready" aria-label="Checklist"><li data-chk="role">Role chosen</li><li data-chk="name">Name entered</li><li data-chk="email">Valid email</li><li data-chk="mobile">Valid mobile</li><li data-chk="password">Strong, matching password</li></ul>
+        <p class="ready-note text-muted" aria-live="polite"></p>
+        <div class="privacy"><b>🔐 How we protect your data</b>
+          <ul><li>Your password is stored only as a salted hash. Nobody, including admins, can read it.</li><li>We never ask for card or ID numbers.</li><li>You only ever see your own orders and listings.</li></ul></div>
+      </section>
+
+      <div class="wz-nav">
+        <button type="button" class="btn-fc-ghost" data-back style="visibility:hidden">← Back</button>
+        <button type="button" class="btn-fc shine" data-next>CONTINUE →</button>
+        <button type="submit" class="btn-fc shine" data-sub hidden><span class="lbl">CREATE ACCOUNT</span><span class="spin2"></span></button>
+      </div>
+      <p class="mt-3 small text-center">Already registered? <a asp-action="Login">Login</a></p>
+    </form>
+  </div>
+</section>
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/viz.js" asp-append-version="true"></script><script src="~/js/register.js" asp-append-version="true"></script> }

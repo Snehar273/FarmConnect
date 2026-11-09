@@ -1,415 +1,100 @@
 @model List<PriceHistoryView>
-
 @{
-    ViewData["Title"] = "Price History";
-
-    var r = Context.Request.Query;
-
-    var rows = Model ?? new List<PriceHistoryView>();
-
-    var units = ViewBag.Units as List<string> ?? new List<string>();
-
-    var markets = ViewBag.Markets as List<string> ?? new List<string>();
-
-    var chartJson = ViewBag.Chart as string
-                    ?? "{\"labels\":[],\"sets\":[]}";
-
-    decimal minPrice = ViewBag.Min != null
-        ? (decimal)ViewBag.Min
-        : 0m;
-
-    decimal maxPrice = ViewBag.Max != null
-        ? (decimal)ViewBag.Max
-        : 0m;
-
-    decimal avgPrice = ViewBag.Avg != null
-        ? (decimal)ViewBag.Avg
-        : 0m;
-
-    var sample = (rows.FirstOrDefault()?.Source ?? "")
-        .Contains("ample", StringComparison.OrdinalIgnoreCase);
+  ViewData["Title"] = "Price History"; var r = Context.Request.Query; var inv = CultureInfo.InvariantCulture;
+  var units = (List<string>)ViewBag.Units; var unit = units.FirstOrDefault() ?? "kg";
+  var sample = (Model.FirstOrDefault()?.Source ?? "").Contains("ample", StringComparison.OrdinalIgnoreCase); var served = (string)ViewBag.Served;
+  var dates = Model.Select(x => x.PriceDate.Date).Distinct().OrderBy(x => x).ToList();
+  var labels = dates.Select(x => x.ToString("dd MMM")).ToList();
+  var avgDay = dates.Select(x => Math.Round(Model.Where(m => m.PriceDate.Date == x).Average(m => m.ModalPrice), 2)).ToList();
+  var minDay = dates.Select(x => Model.Where(m => m.PriceDate.Date == x).Min(m => m.MinPrice)).ToList();
+  var maxDay = dates.Select(x => Model.Where(m => m.PriceDate.Date == x).Max(m => m.MaxPrice)).ToList();
+  var sets = Model.GroupBy(m => m.MarketName).Select(g => new { label = g.Key, data = dates.Select(x => { var v = g.Where(m => m.PriceDate.Date == x).Select(m => m.ModalPrice).ToList(); return v.Count == 0 ? (decimal?)null : Math.Round(v.Average(), 2); }).ToList() }).ToList();
+  var byMarket = Model.GroupBy(m => m.MarketName).Select(g => new { k = g.Key, v = Math.Round(g.Average(m => m.ModalPrice), 2) }).OrderByDescending(x => x.v).ToList();
+  var chg = avgDay.Select((v, i) => i == 0 ? 0m : v - avgDay[i - 1]).ToList();
+  decimal first = avgDay.Count > 0 ? avgDay.First() : 0m, last = avgDay.Count > 0 ? avgDay.Last() : 0m;
+  decimal trend = first == 0 ? 0m : (last - first) / first * 100m;
+  decimal lo = avgDay.Count > 0 ? avgDay.Min() : 0m, hi = avgDay.Count > 0 ? avgDay.Max() : 0m, rng = hi - lo;
+  int bi = avgDay.Count > 0 ? avgDay.IndexOf(hi) : -1;
+  int ji = chg.Count > 1 ? chg.IndexOf(chg.OrderByDescending(c => Math.Abs(c)).First()) : -1;
+  var cfg = System.Text.Json.JsonSerializer.Serialize(new { charts = new object[] {
+    new { id = "cMain", def = "Modal", modes = new { Modal = new { type = "line", labels, sets, y = "₹ per " + unit }, Range = new { type = "band", labels, min = minDay, max = maxDay, modal = avgDay } } },
+    new { id = "cMkt", type = "bar", h = true, labels = byMarket.Select(x => x.k), data = byMarket.Select(x => x.v) },
+    new { id = "cChg", type = "bar", signed = true, labels, data = chg } } });
 }
-
-<h1 class="page-h">Market Price History</h1>
-
-
-<!-- FILTERS -->
+<link rel="stylesheet" href="~/css/pages.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/viz.css" asp-append-version="true" />
 
 <form method="get" class="filters">
-
-    <select name="produceId"
-            asp-items="(SelectList)ViewBag.Produce"
-            class="form-select"
-            aria-label="Produce">
-    </select>
-
-    <select name="market"
-            class="form-select"
-            aria-label="Market">
-
-        <option value="">All markets</option>
-
-        @foreach (var m in markets)
-        {
-            <option value="@m" selected="@(r["market"] == m)">
-                @m
-            </option>
-        }
-
-    </select>
-
-    <input name="fromDate"
-           type="date"
-           value="@r["fromDate"]"
-           class="form-control"
-           aria-label="From date" />
-
-    <input name="toDate"
-           type="date"
-           value="@r["toDate"]"
-           class="form-control"
-           aria-label="To date" />
-
-    <button type="submit" class="btn-fc">
-        APPLY
-    </button>
-
+  <select name="produceId" asp-items="(SelectList)ViewBag.Produce" class="form-select" aria-label="Produce"></select>
+  <select name="market" class="form-select" aria-label="Market"><option value="">All markets</option>@foreach (var m in (List<string>)ViewBag.Markets) { <option value="@m" selected="@(r["market"] == m)">@m</option> }</select>
+  <input name="fromDate" type="date" value="@r["fromDate"]" class="form-control" aria-label="From date" />
+  <input name="toDate" type="date" value="@r["toDate"]" class="form-control" aria-label="To date" />
+  <button class="btn-fc">APPLY</button>
 </form>
-
-
-<!-- PRICE STATISTICS -->
-
-<div class="stat-row">
-
-    <div class="stat reveal">
-
-        <small>Minimum price</small>
-
-        <b data-count="@minPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-           data-dec="2"
-           data-pre="₹">
-
-            ₹@minPrice.ToString("0.##")
-
-        </b>
-
-    </div>
-
-
-    <div class="stat reveal">
-
-        <small>Maximum price</small>
-
-        <b data-count="@maxPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-           data-dec="2"
-           data-pre="₹">
-
-            ₹@maxPrice.ToString("0.##")
-
-        </b>
-
-    </div>
-
-
-    <div class="stat reveal hl">
-
-        <small>Average modal price</small>
-
-        <b data-count="@avgPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-           data-dec="2"
-           data-pre="₹">
-
-            ₹@avgPrice.ToString("0.##")
-
-        </b>
-
-    </div>
-
+<div class="served @(served.Contains("HIT") ? "hit" : served.Contains("unavailable") ? "down" : "miss")" role="status">
+  <span class="dotp"></span><b>@served</b><span>· @ViewBag.Ms ms</span><span class="ms-auto">Session: @ViewBag.Hits cache hits · @ViewBag.SqlReads SQL reads</span>
 </div>
+@if (units.Count > 1) { <div class="flash">⚠ Multiple units in this selection. Prices are not converted, so filter carefully.</div> }
 
-
-<!-- MULTIPLE UNIT WARNING -->
-
-@if (units.Count > 1)
+<div class="kgrid">
+  <div class="kcard reveal" data-tilt style="--c:var(--amber)"><span class="orb">📉</span><small>Lowest price</small><b data-count="@(((decimal)ViewBag.Min).ToString(inv))" data-dec="2" data-pre="₹">₹0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--terra)"><span class="orb">📈</span><small>Highest price</small><b data-count="@(((decimal)ViewBag.Max).ToString(inv))" data-dec="2" data-pre="₹">₹0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--p2)"><span class="orb">⚖️</span><small>Average modal price</small><b data-count="@(((decimal)ViewBag.Avg).ToString(inv))" data-dec="2" data-pre="₹">₹0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--p)"><span class="orb">@(trend >= 0 ? "🚀" : "🔻")</span><small>Trend over the period</small><b class="@(trend >= 0 ? "up" : "dn")">@(trend >= 0 ? "▲" : "▼") @Math.Abs(trend).ToString("0.#")%</b><i class="kline"></i></div>
+</div>
+@if (dates.Any())
 {
-    <div class="flash">
-        ⚠ Multiple units in this selection — prices are not converted.
-        Filter carefully.
-    </div>
+  <div class="chipsx">
+    <div class="insight" style="--i:0"><span class="ie">🏆</span><div><b>@dates[bi].ToString("dd MMM")</b><small>Best day to sell · ₹@hi.ToString("0.##")</small></div></div>
+    @if (ji >= 0) { <div class="insight" style="--i:1"><span class="ie">⚡</span><div><b class="@(chg[ji] >= 0 ? "up" : "dn")">@(chg[ji] >= 0 ? "+" : "−")₹@Math.Abs(chg[ji]).ToString("0.##")</b><small>Biggest daily move · @dates[ji].ToString("dd MMM")</small></div></div> }
+    <div class="insight" style="--i:2"><span class="ie">↔️</span><div><b>₹@rng.ToString("0.##")</b><small>Spread between best and worst day</small></div></div>
+    <div class="insight" style="--i:3"><span class="ie">🏪</span><div><b>@byMarket.First().k</b><small>Best-paying market · avg ₹@byMarket.First().v.ToString("0.##")</small></div></div>
+  </div>
 }
 
-
-<!-- PRICE CHART -->
-
-<div class="panel reveal">
-
-    @if (sample)
-    {
-        <span class="pill-sample">
-            SAMPLE DATA — not live prices
-        </span>
-    }
-
-    @if (rows.Count > 0)
-    {
-        <div class="chart-box mt-2">
-
-            <canvas id="chart"
-                    role="img"
-                    aria-label="Modal price trend by market">
-            </canvas>
-
-        </div>
-    }
-    else
-    {
-        <div class="empty mt-3">
-            No price history is available for the selected filters.
-            Try selecting another produce or market.
-        </div>
-    }
-
-    <p class="small text-muted mt-2 mb-0">
-
-        From SQL view <code>vw_PriceHistory</code>
-
-        · @(rows.FirstOrDefault()?.Source ?? "No data for this selection.")
-
-        · Unit: ₹ per @(units.FirstOrDefault() ?? "kg")
-
-    </p>
-
+<div class="dg">
+  <div class="cb c8 reveal"><div class="cb-h"><div><h3>Price movement</h3><p class="cap">Modal price in ₹ per @unit. @(sample ? "Sample data, not live prices." : "")</p></div>
+      <div class="seg" role="group" aria-label="Chart view"><button type="button" class="on" data-chart="cMain" data-mode="Modal" aria-pressed="true">By market</button><button type="button" data-chart="cMain" data-mode="Range" aria-pressed="false">Min–Max band</button></div></div>
+    <div class="cv tall"><canvas id="cMain" role="img" aria-label="Price movement chart"></canvas></div></div>
+  <div class="cb c4 reveal"><h3>Market comparison</h3><p class="cap">Average modal price per market.</p><div class="cv tall"><canvas id="cMkt" role="img" aria-label="Average price by market"></canvas></div></div>
+  <div class="cb c6 reveal"><h3>Day-to-day change</h3><p class="cap">Green: price rose. Orange-red: price fell, versus the previous day.</p><div class="cv"><canvas id="cChg" role="img" aria-label="Daily price change"></canvas></div></div>
+  <div class="cb c6 reveal"><h3>Price heat strip</h3><p class="cap">Each square is one day. Darker green means a higher price.</p>
+    <div class="heat" role="img" aria-label="Daily price heat strip">
+      @for (var k = 0; k < avgDay.Count; k++)
+      {
+        var t = rng == 0 ? 0.5m : (avgDay[k] - lo) / rng;
+        <span class="hc" style="--i:@k;--t:@t.ToString("0.00", inv)" title="@(dates[k].ToString("dd MMM") + ": ₹" + avgDay[k].ToString("0.##"))"><b>@dates[k].ToString("dd")</b></span>
+      }
+    </div>
+    <div class="heat-leg"><span>Lower</span><i></i><span>Higher</span></div>
+    @if (!avgDay.Any()) { <div class="allgood"><span>📭</span><p>No data for this selection.</p></div> }
+  </div>
 </div>
+<p class="small text-muted">From SQL view <code>vw_PriceHistory</code> · @(Model.FirstOrDefault()?.Source ?? "No data for this selection.") · Unit: ₹ per @unit</p>
 
-
-<!-- RECENT RECORDS -->
-
-<h2 class="sec reveal">
-    Recent records
-</h2>
-
-<div class="table-wrap reveal">
-
-    <table class="fc-table">
-
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Produce</th>
-                <th>Market</th>
-                <th>Min</th>
-                <th>Max</th>
-                <th>Modal</th>
-                <th>Unit</th>
-            </tr>
-        </thead>
-
-        <tbody>
-
-            @foreach (var p in rows
-                .OrderByDescending(x => x.PriceDate)
-                .Take(40))
-            {
-                <tr>
-
-                    <td>
-                        @p.PriceDate.ToString("dd MMM yyyy")
-                    </td>
-
-                    <td>
-                        @p.ProduceName
-                    </td>
-
-                    <td>
-                        @p.MarketName
-                    </td>
-
-                    <td>
-                        ₹@p.MinPrice.ToString("0.##")
-                    </td>
-
-                    <td>
-                        ₹@p.MaxPrice.ToString("0.##")
-                    </td>
-
-                    <td>
-                        <b>₹@p.ModalPrice.ToString("0.##")</b>
-                    </td>
-
-                    <td>
-                        @p.Unit
-                    </td>
-
-                </tr>
-            }
-
-        </tbody>
-
-    </table>
-
-    @if (rows.Count == 0)
-    {
-        <div class="empty">
-            No records found.
-        </div>
-    }
-
-</div>
-
+@if (User.IsInRole("Admin"))
+{
+  <h2 class="sec h2x reveal">Admin · add price record</h2>
+  <form method="post" asp-action="Add" class="filters reveal">
+    <select name="produceId" asp-items="(SelectList)ViewBag.ProduceAll" class="form-select" aria-label="Produce"></select>
+    <input name="marketName" class="form-control" placeholder="Market" required />
+    <input name="priceDate" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+    <input name="minPrice" type="number" step="0.01" min="0.01" class="form-control" placeholder="Min ₹" required />
+    <input name="modalPrice" type="number" step="0.01" min="0.01" class="form-control" placeholder="Modal ₹" required />
+    <input name="maxPrice" type="number" step="0.01" min="0.01" class="form-control" placeholder="Max ₹" required />
+    <select name="unit" class="form-select"><option>kg</option><option>quintal</option></select>
+    <input name="source" class="form-control" placeholder="Source (e.g. AGMARKNET)" />
+    <button class="btn-fc">SAVE + INVALIDATE</button>
+  </form>
+  <form method="post" asp-action="Flush"><button class="btn-sm-fc danger">Flush price cache</button></form>
+}
+<h2 class="sec h2x reveal">Recent records</h2>
+<div class="table-wrap reveal"><table class="fc-table"><thead><tr><th>Date</th><th>Produce</th><th>Market</th><th>Min</th><th>Max</th><th>Modal</th><th>Unit</th></tr></thead><tbody>
+@foreach (var p in Model.OrderByDescending(x => x.PriceDate).Take(40)) { <tr><td>@p.PriceDate.ToString("dd MMM yyyy")</td><td>@p.ProduceName</td><td>@p.MarketName</td><td>₹@p.MinPrice.ToString("0.##")</td><td>₹@p.MaxPrice.ToString("0.##")</td><td><b>₹@p.ModalPrice.ToString("0.##")</b></td><td>@p.Unit</td></tr> }
+</tbody></table></div>
 
 @section Scripts {
-
-    <!-- Chart.js -->
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-
-    <script>
-
-        document.addEventListener("DOMContentLoaded", function () {
-
-            const canvas = document.getElementById("chart");
-
-            if (!canvas) return;
-
-            if (typeof Chart === "undefined") {
-                console.error("Chart.js failed to load. Check your internet connection or CDN access.");
-                return;
-            }
-
-            // Data prepared by PriceController
-            const chartData = @Html.Raw(chartJson);
-
-            const labels = chartData.labels || [];
-
-            const sourceSets = chartData.sets || [];
-
-            if (labels.length === 0 || sourceSets.length === 0) {
-                console.warn("No price-history data is available for the chart.");
-                return;
-            }
-
-            // Colors for different market lines
-            const colors = [
-                "#24543b",
-                "#e6a23c",
-                "#3979a8",
-                "#a45b8a",
-                "#6b8e23",
-                "#bd5945",
-                "#7456a5",
-                "#368c87"
-            ];
-
-            // Convert controller datasets into Chart.js datasets
-            const datasets = sourceSets.map((set, index) => {
-
-                const color = colors[index % colors.length];
-
-                return {
-                    label: set.label + " (modal)",
-
-                    data: set.data,
-
-                    borderColor: color,
-
-                    backgroundColor: color,
-
-                    borderWidth: 3,
-
-                    pointRadius: 4,
-
-                    pointHoverRadius: 7,
-
-                    pointBackgroundColor: color,
-
-                    tension: 0.35,
-
-                    fill: false,
-
-                    spanGaps: false
-                };
-            });
-
-            // Draw chart
-            new Chart(canvas, {
-
-                type: "line",
-
-                data: {
-                    labels: labels,
-                    datasets: datasets
-                },
-
-                options: {
-
-                    responsive: true,
-
-                    maintainAspectRatio: false,
-
-                    interaction: {
-                        intersect: false,
-                        mode: "index"
-                    },
-
-                    plugins: {
-
-                        legend: {
-                            display: true,
-                            position: "top"
-                        },
-
-                        tooltip: {
-                            enabled: true,
-
-                            callbacks: {
-                                label: function (context) {
-
-                                    const value = context.parsed.y;
-
-                                    return context.dataset.label +
-                                        ": ₹" +
-                                        (value == null ? "No data" : value.toFixed(2));
-                                }
-                            }
-                        }
-                    },
-
-                    scales: {
-
-                        x: {
-                            title: {
-                                display: true,
-                                text: "Date"
-                            },
-
-                            grid: {
-                                display: false
-                            }
-                        },
-
-                        y: {
-
-                            beginAtZero: false,
-
-                            title: {
-                                display: true,
-                                text: "Modal price (₹)"
-                            },
-
-                            ticks: {
-                                callback: function (value) {
-                                    return "₹" + value;
-                                }
-                            }
-                        }
-
-                    }
-
-                }
-
-            });
-
-        });
-
-    </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="~/js/viz.js" asp-append-version="true"></script>
+  <script>fcViz(@Html.Raw(cfg));</script>
 }

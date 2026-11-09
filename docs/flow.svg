@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" width="100%">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#c2994a"/></marker></defs>
+  <rect width="1200" height="340" rx="22" fill="#faf7f0"/>
+  <g font-family="Segoe UI,Arial,sans-serif" text-anchor="middle" fill="#2d4a2b">
+    <text x="600" y="34" font-size="20" font-weight="700">What happens when a buyer places an order</text>
+    <g font-size="15">
+      <rect x="20" y="62" width="200" height="86" rx="16" fill="#e8efde" stroke="#2d4a2b"/><text x="120" y="96" font-size="26">🛒</text><text x="120" y="122">Buyer orders</text><text x="120" y="140" font-size="12" fill="#6b7466">quantity validated</text>
+      <rect x="260" y="62" width="200" height="86" rx="16" fill="#e8efde" stroke="#2d4a2b"/><text x="360" y="96" font-size="26">⚙️</text><text x="360" y="122">OrderService</text><text x="360" y="140" font-size="12" fill="#6b7466">atomic stock update</text>
+      <rect x="500" y="62" width="200" height="86" rx="16" fill="#e8efde" stroke="#2d4a2b"/><text x="600" y="96" font-size="26">🗄️</text><text x="600" y="122">SQL Server</text><text x="600" y="140" font-size="12" fill="#6b7466">Order + Outbox, one transaction</text>
+      <rect x="740" y="62" width="200" height="86" rx="16" fill="#e8efde" stroke="#2d4a2b"/><text x="840" y="96" font-size="26">🔄</text><text x="840" y="122">Outbox worker</text><text x="840" y="140" font-size="12" fill="#6b7466">claims, retries, never loses</text>
+      <rect x="980" y="62" width="200" height="86" rx="16" fill="#e8efde" stroke="#2d4a2b"/><text x="1080" y="96" font-size="26">🚚</text><text x="1080" y="122">Logistics booking</text><text x="1080" y="140" font-size="12" fill="#6b7466">one per order, or pending</text>
+    </g>
+    <g stroke="#c2994a" stroke-width="3" fill="none" marker-end="url(#ar)"><path d="M222 105H256"/><path d="M462 105H496"/><path d="M702 105H736"/><path d="M942 105H976"/></g>
+    <circle r="7" fill="#c2994a"><animateMotion dur="6s" repeatCount="indefinite" path="M120 105H1080"/></circle>
+
+    <text x="600" y="206" font-size="20" font-weight="700">How price pages stay fast</text>
+    <g font-size="15">
+      <rect x="260" y="228" width="200" height="74" rx="16" fill="#e8efde" stroke="#3f7653"/><text x="360" y="258">📈 Price History</text><text x="360" y="280" font-size="12" fill="#6b7466">page request</text>
+      <rect x="500" y="228" width="200" height="74" rx="16" fill="#e8efde" stroke="#3f7653"/><text x="600" y="258">⚡ Redis cache</text><text x="600" y="280" font-size="12" fill="#6b7466">hit: instant answer</text>
+      <rect x="740" y="228" width="200" height="74" rx="16" fill="#e8efde" stroke="#3f7653"/><text x="840" y="258">🗄️ SQL view</text><text x="840" y="280" font-size="12" fill="#6b7466">miss or Redis down</text>
+    </g>
+    <g stroke="#3f7653" stroke-width="3" fill="none"><path d="M462 265H496"/><path d="M702 265H736"/></g>
+    <circle r="6" fill="#3f7653"><animateMotion dur="4s" repeatCount="indefinite" path="M360 265H840"/></circle>
+  </g>
+</svg>

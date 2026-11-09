@@ -1,23 +1,81 @@
 @model AdminVm
 @{ ViewData["Title"] = "Admin"; }
-<h1 class="page-h">Admin Dashboard</h1>
-<div class="stat-row">
-  <div class="stat"><small>Users</small><b>@Model.Users.Count</b></div>
-  <div class="stat"><small>Listings</small><b>@Model.Listings.Count</b></div>
-  <div class="stat"><small>Orders</small><b>@Model.Orders.Count</b></div>
-  <div class="stat"><small>Completed revenue</small><b>₹@Model.CompletedRevenue.ToString("N2")</b></div>
+<link rel="stylesheet" href="~/css/pages.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/viz.css" asp-append-version="true" />
+@{ var adminTips = new[] {
+  "🚚|Clear pending transport|Open Logistics and use Re-match, or assign a partner manually.",
+  "📨|Watch the event queue|A growing queue or failed events mean the background worker needs attention.",
+  "⚡|Check the cache|A low cache hit rate means price pages are hitting the database.",
+  "👥|Lock misuse quickly|Use the Users tab to lock any account that should not trade." }; }
+
+<div class="livebar reveal" data-live data-url="@Url.Action("Stats", "Admin")" data-logi="@Url.Action("Index", "Logistics")" data-orders="@Url.Action("Index", "Orders")">
+  <span class="livepill2"><i></i>LIVE</span><span class="clk" id="clk">--:--:--</span>
+  <span class="cdw" aria-hidden="true"><i id="cdbar"></i></span><span class="small text-muted" data-upd>Loading…</span>
+  <span class="ms-auto d-flex gap-2 flex-wrap"><button type="button" class="btn-sm-fc" data-refresh>↻ Refresh now</button><a class="btn-sm-fc" asp-controller="Logistics" asp-action="Index">🚚 Logistics</a><a class="btn-sm-fc" asp-controller="Price" asp-action="Index">📈 Prices</a></span>
 </div>
-<h2 class="sec">Users</h2>
-<div class="table-wrap"><table class="fc-table"><thead><tr><th>Name</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>
-@foreach (var u in Model.Users) { <tr><td>@u.Name</td><td>@u.Email</td><td>@u.Phone</td><td>@u.Role</td><td><span class="st @(u.Locked ? "st-Rejected" : "st-Active")">@(u.Locked ? "Locked" : "Active")</span></td>
-  <td>@if (u.Role != "Admin") { <form asp-action="ToggleUser" asp-route-id="@u.Id" method="post"><button class="btn-sm-fc">@(u.Locked ? "Unlock" : "Lock")</button></form> }</td></tr> }
-</tbody></table></div>
-<h2 class="sec">Listings</h2>
-<div class="table-wrap"><table class="fc-table"><thead><tr><th>Produce</th><th>Farmer</th><th>Available</th><th>Price</th><th>Status</th><th></th></tr></thead><tbody>
-@foreach (var l in Model.Listings) { <tr><td>@l.Produce.Emoji @l.Produce.Name</td><td>@l.Farmer.FullName</td><td>@l.QuantityAvailable.ToString("0.##") @l.Unit</td><td>₹@l.PricePerUnit.ToString("0.##")</td><td><span class="st st-@l.Status">@l.Status</span></td>
-  <td><form asp-action="ToggleListing" asp-route-id="@l.Id" method="post"><button class="btn-sm-fc">@(l.Status == ListingStatus.Active ? "Deactivate" : "Activate")</button></form></td></tr> }
-</tbody></table></div>
-<h2 class="sec">Orders</h2>
-<div class="table-wrap"><table class="fc-table"><thead><tr><th>Order</th><th>Buyer</th><th>Farmer</th><th>Item</th><th>Total</th><th>Status</th></tr></thead><tbody>
-@foreach (var o in Model.Orders) { <tr><td><b>@o.OrderNo</b></td><td>@o.Buyer.FullName</td><td>@o.Farmer.FullName</td><td>@o.Items.First().ProduceName × @o.Items.First().Quantity.ToString("0.##")</td><td>₹@o.TotalAmount.ToString("N2")</td><td><span class="st st-@o.Status">@o.Status</span></td></tr> }
-</tbody></table></div>
+
+<div class="kgrid k4">
+  <div class="kcard reveal" data-tilt style="--c:var(--p2)"><span class="orb">👥</span><small>Users</small><b data-k="users" data-cur="0">0</b><span class="sub" data-sub="users">&nbsp;</span><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--p)"><span class="orb">🧺</span><small>Active listings</small><b data-k="active" data-cur="0">0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--amber)"><span class="orb">📦</span><small>Total orders</small><b data-k="orders" data-cur="0">0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--terra)"><span class="orb">💰</span><small>Completed revenue</small><b data-k="revenue" data-pre="₹" data-cur="0">₹0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--amber)"><span class="orb">📝</span><small>Orders awaiting farmers</small><b data-k="placed" data-cur="0">0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--terra)"><span class="orb">🚚</span><small>Awaiting transport</small><b data-k="pendingLogi" data-cur="0">0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--p2)"><span class="orb">📨</span><small>Events in queue</small><b data-k="outboxOpen" data-cur="0">0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--p)"><span class="orb">⚡</span><small>Price cache hit rate</small><b data-k="cacheRatio" data-suf="%" data-cur="0">0%</b><i class="kline"></i></div>
+</div>
+
+<div class="reveal mb-3"><partial name="_Tips" model="adminTips" /></div>
+<div class="dg">
+  <div class="cb c4 reveal"><h3>System health</h3><p class="cap">Event queue, transport and cache combined.</p>
+    <div class="gwrap"><svg class="gauge" viewBox="0 0 120 120" data-gk="health" data-v="0" role="img" aria-label="System health score"><circle class="bg" cx="60" cy="60" r="50"/><circle class="fg" cx="60" cy="60" r="50" pathLength="100"/><text x="60" y="68" text-anchor="middle">0%</text></svg><div><b class="serif fs-4" id="hlabel">Checking…</b></div></div></div>
+  <div class="cb c4 reveal"><h3>Transport coverage</h3><p class="cap">Bookings that already have a partner.</p>
+    <div class="gwrap"><svg class="gauge" viewBox="0 0 120 120" data-gk="coverage" data-v="0" role="img" aria-label="Transport coverage"><circle class="bg" cx="60" cy="60" r="50"/><circle class="fg" cx="60" cy="60" r="50" pathLength="100"/><text x="60" y="68" text-anchor="middle">0%</text></svg><div class="small text-muted">Unmatched bookings can be assigned on the Logistics page.</div></div></div>
+  <div class="cb c4 reveal"><h3>Cache efficiency</h3><p class="cap">Price queries served from Redis.</p>
+    <div class="gwrap"><svg class="gauge" viewBox="0 0 120 120" data-gk="cacheRatio" data-v="0" role="img" aria-label="Cache hit rate"><circle class="bg" cx="60" cy="60" r="50"/><circle class="fg" cx="60" cy="60" r="50" pathLength="100"/><text x="60" y="68" text-anchor="middle">0%</text></svg><div class="small text-muted">Open Price History a few times to see this rise.</div></div></div>
+
+  <div class="cb c5 reveal"><h3>Needs attention</h3><p class="cap">Updates automatically.</p><ul class="alerts" id="alerts"></ul></div>
+  <div class="cb c7 reveal"><h3>Live order feed</h3><p class="cap">New orders slide in here as they happen.</p><ul class="feed2" id="feed"></ul></div>
+
+  <div class="cb c8 reveal"><h3>Last 14 days</h3><p class="cap">Bars: revenue from completed orders (₹). Line: orders placed per day.</p><div class="cv tall"><canvas id="cTrend" role="img" aria-label="Revenue and orders per day"></canvas></div></div>
+  <div class="cb c4 reveal"><h3>Orders by status</h3><p class="cap">Where every order is right now.</p><div class="cv tall"><canvas id="cOrders" role="img" aria-label="Orders by status"></canvas></div></div>
+  <div class="cb c4 reveal"><h3>Users by role</h3><p class="cap">Who is on the platform.</p><div class="cv"><canvas id="cRoles" role="img" aria-label="Users by role"></canvas></div></div>
+  <div class="cb c4 reveal"><h3>Top produce</h3><p class="cap">Most ordered items.</p><div class="cv"><canvas id="cTop" role="img" aria-label="Top ordered produce"></canvas></div></div>
+  <div class="cb c4 reveal"><h3>Transport bookings</h3><p class="cap">Assigned vs waiting.</p><div class="cv"><canvas id="cLogi" role="img" aria-label="Logistics bookings by status"></canvas></div></div>
+  <div class="cb c12 reveal"><h3>Listings by status</h3><p class="cap">Active, inactive and sold out.</p><div class="cv"><canvas id="cListings" role="img" aria-label="Listings by status"></canvas></div></div>
+</div>
+
+<h2 class="sec h2x reveal">Manage</h2>
+<div class="mtabs reveal" data-tabs>
+  <div class="tablist" role="tablist" aria-label="Management">
+    <button type="button" role="tab" aria-selected="true" id="ta1" aria-controls="pa1">👥 Users</button>
+    <button type="button" role="tab" aria-selected="false" id="ta2" aria-controls="pa2">🧺 Listings</button>
+    <button type="button" role="tab" aria-selected="false" id="ta3" aria-controls="pa3">📦 Orders</button>
+  </div>
+  <div class="table-wrap tabpanel" role="tabpanel" id="pa1" aria-labelledby="ta1"><table class="fc-table"><thead><tr><th>Name</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>
+  @foreach (var u in Model.Users) { <tr><td>@u.Name</td><td>@u.Email</td><td>@u.Phone</td><td>@u.Role</td><td><span class="st @(u.Locked ? "st-Rejected" : "st-Active")">@(u.Locked ? "Locked" : "Active")</span></td>
+    <td>@if (u.Role != "Admin") { <form asp-action="ToggleUser" asp-route-id="@u.Id" method="post"><button class="btn-sm-fc">@(u.Locked ? "Unlock" : "Lock")</button></form> }</td></tr> }
+  </tbody></table></div>
+  <div class="table-wrap tabpanel" role="tabpanel" id="pa2" aria-labelledby="ta2" hidden><table class="fc-table"><thead><tr><th>Produce</th><th>Farmer</th><th>Available</th><th>Price</th><th>Status</th><th></th></tr></thead><tbody>
+  @foreach (var l in Model.Listings) { <tr><td>@l.Produce.Emoji @l.Produce.Name</td><td>@l.Farmer.FullName</td><td>@l.QuantityAvailable.ToString("0.##") @l.Unit</td><td>₹@l.PricePerUnit.ToString("0.##")</td><td><span class="st st-@l.Status">@l.Status</span></td>
+    <td><form asp-action="ToggleListing" asp-route-id="@l.Id" method="post"><button class="btn-sm-fc">@(l.Status == ListingStatus.Active ? "Deactivate" : "Activate")</button></form></td></tr> }
+  </tbody></table></div>
+  <div class="table-wrap tabpanel" role="tabpanel" id="pa3" aria-labelledby="ta3" hidden><table class="fc-table"><thead><tr><th>Order</th><th>Buyer</th><th>Farmer</th><th>Item</th><th>Total</th><th>Status</th></tr></thead><tbody>
+  @foreach (var o in Model.Orders) { <tr><td><b>@o.OrderNo</b></td><td>@o.Buyer.FullName</td><td>@o.Farmer.FullName</td><td>@o.Items.First().ProduceName × @o.Items.First().Quantity.ToString("0.##")</td><td>₹@o.TotalAmount.ToString("N2")</td><td><span class="st st-@o.Status">@o.Status</span></td></tr> }
+  </tbody></table></div>
+</div>
+
+<script type="application/json" id="snap">@Html.Raw((string)ViewBag.Snap)</script>
+@section Scripts {
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="~/js/pages.js" asp-append-version="true"></script>
+  <script src="~/js/viz.js" asp-append-version="true"></script>
+  <script>
+    var D = @Html.Raw((string)ViewBag.Dash);
+    fcPage({
+      combo: [{ id: 'cTrend', labels: D.trend.labels, bar: { label: 'Revenue (₹)', data: D.trend.revenue }, line: { label: 'Orders placed', data: D.trend.placed } }],
+      donut: [{ id: 'cOrders', d: D.orderStatus }, { id: 'cRoles', d: D.roles }, { id: 'cLogi', d: D.logistics }],
+      bars: [{ id: 'cTop', d: D.top, h: true }, { id: 'cListings', d: D.listings }]
+    });
+  </script>
+}

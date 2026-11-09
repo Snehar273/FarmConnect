@@ -1,152 +1,45 @@
-using FarmConnect.Data;
-using FarmConnect.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
+namespace FarmConnect.Controllers;
 
-namespace FarmConnect.Controllers
+[Authorize]
+public class PriceController(IProduceService produce, IPriceCacheService prices) : Controller
 {
-    [Authorize]
-    public class PriceController(ApplicationDbContext db) : Controller
+    public async Task<IActionResult> Index(int? produceId, string market, DateTime? fromDate, DateTime? toDate)
     {
-        public async Task<IActionResult> Index(
-            int? produceId,
-            string market = "",
-            DateTime? fromDate = null,
-            DateTime? toDate = null)
+        var list = await produce.GetAllProduceAsync();
+        produceId ??= list.FirstOrDefault()?.ProduceId;
+        var res = produceId.HasValue ? await prices.GetPricesAsync(produceId.Value, market, fromDate, toDate) : new PriceResult(new(), "No produce", 0);
+        var rows = res.Rows;
+
+        var labels = rows.Select(r => r.PriceDate.ToString("dd MMM")).Distinct().ToList();
+        var sets = rows.GroupBy(r => r.MarketName).Select(g => new
         {
-            // 1. Load available produce
-            var produce = await db.ProduceItems
-                .AsNoTracking()
-                .OrderBy(p => p.Name)
-                .ToListAsync();
+            label = g.Key,
+            data = labels.Select(lb => g.Where(r => r.PriceDate.ToString("dd MMM") == lb).Select(r => (decimal?)r.ModalPrice).FirstOrDefault()).ToList()
+        }).ToList();
 
-            // 2. Select the first produce by default
-            produceId ??= produce.FirstOrDefault()?.ProduceId;
-
-            // 3. Get price history from SQL view
-            var query = db.PriceHistoryView
-                .AsNoTracking()
-                .AsQueryable();
-
-            if (produceId.HasValue)
-            {
-                query = query.Where(x => x.ProduceId == produceId.Value);
-            }
-            else
-            {
-                query = query.Where(x => false);
-            }
-
-            // 4. Apply market filter
-            if (!string.IsNullOrWhiteSpace(market))
-            {
-                query = query.Where(x => x.MarketName == market);
-            }
-
-            // 5. Apply date filters
-            if (fromDate.HasValue)
-            {
-                var start = fromDate.Value.Date;
-                query = query.Where(x => x.PriceDate >= start);
-            }
-
-            if (toDate.HasValue)
-            {
-                var end = toDate.Value.Date.AddDays(1);
-                query = query.Where(x => x.PriceDate < end);
-            }
-
-            // 6. Retrieve records
-            var rows = await query
-                .OrderBy(x => x.PriceDate)
-                .ToListAsync();
-
-            // 7. Available markets for the selected produce
-            ViewBag.Markets = await db.PriceHistoryView
-                .AsNoTracking()
-                .Where(x => x.ProduceId == produceId)
-                .Select(x => x.MarketName)
-                .Distinct()
-                .OrderBy(x => x)
-                .ToListAsync();
-
-            // 8. Produce dropdown
-            ViewBag.Produce = new SelectList(
-                produce,
-                "ProduceId",
-                "Name",
-                produceId
-            );
-
-            // 9. Available units
-            var units = rows
-                .Select(x => x.Unit)
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Distinct()
-                .ToList();
-
-            ViewBag.Units = units;
-
-            // 10. Calculate statistics
-            ViewBag.Min = rows.Count > 0
-                ? rows.Min(x => x.MinPrice)
-                : 0m;
-
-            ViewBag.Max = rows.Count > 0
-                ? rows.Max(x => x.MaxPrice)
-                : 0m;
-
-            ViewBag.Avg = rows.Count > 0
-                ? rows.Average(x => x.ModalPrice)
-                : 0m;
-
-            // 11. Generate unique calendar-date labels
-            var dates = rows
-                .Select(x => x.PriceDate.Date)
-                .Distinct()
-                .OrderBy(x => x)
-                .ToList();
-
-            var labels = dates
-                .Select(x => x.ToString("dd MMM yyyy"))
-                .ToList();
-
-            // 12. Create one chart dataset per market
-            var sets = rows
-                .GroupBy(x => x.MarketName)
-                .Select(group => new
-                {
-                    label = group.Key,
-
-                    data = dates.Select(date =>
-                    {
-                        var dailyPrices = group
-                            .Where(x => x.PriceDate.Date == date)
-                            .Select(x => (decimal?)x.ModalPrice)
-                            .ToList();
-
-                        return dailyPrices.Count > 0
-                            ? dailyPrices.Average()
-                            : (decimal?)null;
-                    }).ToList()
-                })
-                .ToList();
-
-            // 13. Serialize chart data
-            ViewBag.Chart = System.Text.Json.JsonSerializer.Serialize(
-                new
-                {
-                    labels,
-                    sets
-                },
-                new System.Text.Json.JsonSerializerOptions(
-                    System.Text.Json.JsonSerializerDefaults.Web)
-            );
-
-            // 14. Return view
-            return View(rows);
-        }
+        ViewBag.Produce = new SelectList(list, "ProduceId", "Name", produceId);
+        ViewBag.ProduceAll = new SelectList(list, "ProduceId", "Name");
+        ViewBag.Markets = await prices.GetMarketsAsync();
+        ViewBag.Chart = System.Text.Json.JsonSerializer.Serialize(new { labels, sets });
+        ViewBag.Units = rows.Select(r => r.Unit).Distinct().ToList();
+        ViewBag.Min = rows.Any() ? rows.Min(r => r.MinPrice) : 0m;
+        ViewBag.Max = rows.Any() ? rows.Max(r => r.MaxPrice) : 0m;
+        ViewBag.Avg = rows.Any() ? rows.Average(r => r.ModalPrice) : 0m;
+        ViewBag.Served = res.Source; ViewBag.Ms = res.Ms; ViewBag.Hits = PriceCacheService.Hits; ViewBag.SqlReads = PriceCacheService.SqlReads;
+        return View(rows);
     }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Add(int produceId, string marketName, DateTime priceDate, decimal minPrice, decimal maxPrice, decimal modalPrice, string unit, string source)
+    {
+        var okUnit = unit is "kg" or "quintal";
+        if (string.IsNullOrWhiteSpace(marketName) || !okUnit || minPrice <= 0 || !(minPrice <= modalPrice && modalPrice <= maxPrice) || await produce.GetProduceByIdAsync(produceId) == null)
+        { TempData["Error"] = "Invalid price record (need min ≤ modal ≤ max, positive values, unit kg/quintal)."; return RedirectToAction(nameof(Index), new { produceId }); }
+        await prices.AddPriceAsync(new PriceHistory { ProduceId = produceId, MarketName = marketName.Trim(), PriceDate = priceDate.Date, MinPrice = minPrice, MaxPrice = maxPrice, ModalPrice = modalPrice, Unit = unit, Source = string.IsNullOrWhiteSpace(source) ? "Admin entry" : source.Trim() });
+        TempData["Ok"] = "Price saved and cache invalidated.";
+        return RedirectToAction(nameof(Index), new { produceId });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Flush() { await prices.FlushAsync(); TempData["Ok"] = "Price cache flushed."; return RedirectToAction(nameof(Index)); }
 }

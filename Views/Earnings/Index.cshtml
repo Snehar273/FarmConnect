@@ -1,20 +1,59 @@
 @model EarningsVm
-@{ ViewData["Title"] = "Earnings"; }
-<h1 class="page-h">Earnings Report</h1>
+@{
+  ViewData["Title"] = "Earnings"; var inv = CultureInfo.InvariantCulture;
+  var d1 = Model.To.Date; var d0 = Model.From.Date; if (d1 < d0) d1 = d0; if ((d1 - d0).TotalDays > 61) d0 = d1.AddDays(-61);
+  var days = Enumerable.Range(0, (int)(d1 - d0).TotalDays + 1).Select(i => d0.AddDays(i)).ToList();
+  var rev = days.Select(d => Model.Orders.Where(o => o.CompletedAt.HasValue && o.CompletedAt.Value.Date == d).Sum(o => o.Items.Sum(i => i.Quantity * i.AgreedUnitPrice))).ToList();
+  decimal run = 0m; var cum = rev.Select(v => run += v).ToList();
+  var byProd = Model.Orders.SelectMany(o => o.Items).GroupBy(i => i.ProduceName).Select(g => new { k = g.Key, v = g.Sum(i => i.Quantity * i.AgreedUnitPrice) }).OrderByDescending(x => x.v).Take(6).ToList();
+  var byBuyer = Model.Orders.GroupBy(o => o.Buyer.FullName).Select(g => new { k = g.Key, v = g.Sum(o => o.Items.Sum(i => i.Quantity * i.AgreedUnitPrice)) }).OrderByDescending(x => x.v).Take(6).ToList();
+  var byCost = Model.Expenses.GroupBy(x => x.Description).Select(g => new { k = g.Key, v = g.Sum(x => x.Amount) }).OrderByDescending(x => x.v).Take(6).ToList();
+  int margin = Model.Gross <= 0 ? 0 : (int)Math.Max(0m, Math.Min(100m, Math.Round(Model.Net * 100m / Model.Gross)));
+  int costPct = Model.Gross <= 0 ? 0 : (int)Math.Min(100m, Math.Round(Model.Costs * 100m / Model.Gross)); int netPct = 100 - costPct;
+  var bestIdx = rev.Count > 0 && rev.Max() > 0 ? rev.IndexOf(rev.Max()) : -1;
+  decimal aov = Model.Orders.Count == 0 ? 0m : Model.Gross / Model.Orders.Count;
+  var cfg = System.Text.Json.JsonSerializer.Serialize(new { charts = new object[] {
+    new { id = "cWater", type = "float", empty = Model.Gross == 0 && Model.Costs == 0, labels = new[] { "Gross revenue", "Selling costs", "Net proceeds" }, colors = new[] { "--p2", "--terra", "--p" }, data = new[] { new[] { 0m, Model.Gross }, new[] { Model.Net, Model.Gross }, new[] { 0m, Model.Net } } },
+    new { id = "cDaily", type = "combo", labels = days.Select(d => d.ToString("dd MMM")), bar = new { label = "Daily revenue (₹)", data = rev }, line = new { label = "Cumulative (₹)", data = cum } },
+    new { id = "cProd", type = "donut", labels = byProd.Select(x => x.k), data = byProd.Select(x => x.v) },
+    new { id = "cBuy", type = "bar", h = true, labels = byBuyer.Select(x => x.k), data = byBuyer.Select(x => x.v) },
+    new { id = "cCost", type = "donut", labels = byCost.Select(x => x.k), data = byCost.Select(x => x.v) } } });
+}
+<link rel="stylesheet" href="~/css/pages.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/viz.css" asp-append-version="true" />
+
 <div class="pills reveal">
   @foreach (var p in new[] { "daily", "weekly", "monthly" }) { <a class="@(Model.Period == p ? "on" : "")" asp-action="Index" asp-route-period="@p">@(char.ToUpper(p[0]) + p.Substring(1))</a> }
   <form method="get" class="d-inline-flex gap-2 align-items-center"><input type="hidden" name="period" value="custom" />
     <input type="date" name="fromDate" class="form-control form-control-sm" value="@Model.From.ToString("yyyy-MM-dd")" /><input type="date" name="toDate" class="form-control form-control-sm" value="@Model.To.ToString("yyyy-MM-dd")" /><button class="btn-sm-fc">Custom range</button></form>
 </div>
-<p class="small text-muted">Showing completed orders from @Model.From.ToString("dd MMM yyyy") to @Model.To.ToString("dd MMM yyyy"). Pending, rejected and cancelled orders are never counted.</p>
-<div class="stat-row">
-  <div class="stat reveal"><small>Completed sales (gross)</small><b>₹@Model.Gross.ToString("N2")</b></div>
-  <div class="stat reveal"><small>Quantity sold</small><b>@Model.Qty.ToString("0.##")</b></div>
-  <div class="stat reveal"><small>Completed orders</small><b>@Model.Orders.Count</b></div>
-  <div class="stat reveal"><small>Recorded selling costs</small><b>₹@Model.Costs.ToString("N2")</b></div>
-  <div class="stat reveal hl"><small>Net proceeds</small><b>₹@Model.Net.ToString("N2")</b></div>
+<p class="small text-muted">Completed orders from @Model.From.ToString("dd MMM yyyy") to @Model.To.ToString("dd MMM yyyy"). Pending, rejected and cancelled orders are never counted.</p>
+
+<div class="kgrid">
+  <div class="kcard reveal" data-tilt style="--c:var(--p2)"><span class="orb">💰</span><small>Gross revenue</small><b data-count="@Model.Gross.ToString(inv)" data-dec="2" data-pre="₹">₹0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--amber)"><span class="orb">⚖️</span><small>Quantity sold</small><b data-count="@Model.Qty.ToString(inv)" data-dec="0">0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--p)"><span class="orb">🎉</span><small>Completed orders</small><b data-count="@Model.Orders.Count">0</b><span class="sub">avg ₹@aov.ToString("N0") per order</span><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--terra)"><span class="orb">🧾</span><small>Recorded selling costs</small><b data-count="@Model.Costs.ToString(inv)" data-dec="2" data-pre="₹">₹0</b><i class="kline"></i></div>
+  <div class="kcard reveal" data-tilt style="--c:var(--p2)"><span class="orb">✨</span><small>Net proceeds</small><b data-count="@Model.Net.ToString(inv)" data-dec="2" data-pre="₹">₹0</b><i class="kline"></i></div>
 </div>
-<p class="small text-muted">Net proceeds = gross revenue − recorded selling costs. This is not your actual farm profit, which also needs seed, fertiliser, labour and irrigation costs.</p>
+<p class="small text-muted">Net proceeds = gross revenue − recorded selling costs. This is not your farm profit, which also needs seed, fertiliser, labour and irrigation costs.</p>
+
+<div class="dg">
+  <div class="cb c5 reveal"><h3>Where your revenue goes</h3><p class="cap">Gross revenue → selling costs → net proceeds.</p><div class="cv tall"><canvas id="cWater" role="img" aria-label="Waterfall from gross revenue to net proceeds"></canvas></div></div>
+  <div class="cb c7 reveal"><h3>Revenue over time</h3><p class="cap">Bars: daily revenue. Line: running total for this period (₹).</p><div class="cv tall"><canvas id="cDaily" role="img" aria-label="Daily and cumulative revenue"></canvas></div></div>
+  <div class="cb c4 reveal"><h3>Profit margin</h3><p class="cap">Net proceeds as a share of gross.</p>
+    <div class="gwrap"><svg class="gauge" viewBox="0 0 120 120" data-v="@margin" role="img" aria-label="Margin @margin percent"><circle class="bg" cx="60" cy="60" r="50"/><circle class="fg" cx="60" cy="60" r="50" pathLength="100"/><text x="60" y="68" text-anchor="middle">@margin%</text></svg>
+      <div class="small text-muted">@(Model.Gross <= 0 ? "Complete an order to see your margin." : margin >= 85 ? "Costs are very low. Great!" : "Lower selling costs raise this.")</div></div>
+    <p class="cap mt-3 mb-1">Money flow</p>
+    <div class="flowstrip" role="img" aria-label="@netPct percent net, @costPct percent costs"><span class="n" style="--w:@netPct%">@(netPct > 12 ? "Net " + netPct + "%" : "")</span><span class="c" style="--w:@costPct%">@(costPct > 12 ? "Costs " + costPct + "%" : "")</span></div></div>
+  <div class="cb c4 reveal"><h3>Revenue by produce</h3><p class="cap">Which crop earns most.</p><div class="cv"><canvas id="cProd" role="img" aria-label="Revenue by produce"></canvas></div></div>
+  <div class="cb c4 reveal"><h3>Top buyers</h3><p class="cap">Who buys most from you.</p><div class="cv"><canvas id="cBuy" role="img" aria-label="Revenue by buyer"></canvas></div></div>
+  <div class="cb c12 reveal"><div class="cb-h"><div><h3>Selling costs breakdown</h3><p class="cap">What you recorded as costs in this period.</p></div>
+      @if (bestIdx >= 0) { <div class="insight" style="--i:0"><span class="ie">🏆</span><div><b>@days[bestIdx].ToString("dd MMM")</b><small>Best day · ₹@rev[bestIdx].ToString("N0")</small></div></div> }</div>
+    <div class="cv"><canvas id="cCost" role="img" aria-label="Costs by description"></canvas></div></div>
+</div>
+
+<h2 class="sec h2x reveal">Completed orders</h2>
 <div class="table-wrap reveal"><table class="fc-table"><thead><tr><th>Order</th><th>Completed</th><th>Buyer</th><th>Item</th><th>Qty</th><th>Agreed price</th><th>Revenue</th></tr></thead><tbody>
 @foreach (var o in Model.Orders) { foreach (var i in o.Items) { <tr><td><b>@o.OrderNo</b></td><td>@o.CompletedAt?.ToString("dd MMM yyyy")</td><td>@o.Buyer.FullName</td><td>@i.ProduceName</td><td>@i.Quantity.ToString("0.##") @i.Unit</td><td>₹@i.AgreedUnitPrice.ToString("0.##")</td><td>₹@i.LineTotal.ToString("N2")</td></tr> } }
 @if (!Model.Orders.Any()) { <tr><td colspan="7" class="text-center text-muted py-4">No completed orders in this period.</td></tr> }
@@ -28,6 +67,11 @@
       <input name="amount" type="number" step="0.01" min="0.01" class="form-control" placeholder="Amount ₹" required />
       <button class="btn-fc">ADD COST</button>
     </form>
-    @foreach (var x in Model.Expenses) { <div class="small mt-2">• @x.ExpenseDate.ToString("dd MMM") — @x.Description: <b>₹@x.Amount.ToString("N2")</b></div> }
+    @foreach (var x in Model.Expenses) { <div class="small mt-2">• @x.ExpenseDate.ToString("dd MMM") · @x.Description: <b>₹@x.Amount.ToString("N2")</b></div> }
   </div>
+}
+@section Scripts {
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="~/js/viz.js" asp-append-version="true"></script>
+  <script>fcViz(@Html.Raw(cfg));</script>
 }

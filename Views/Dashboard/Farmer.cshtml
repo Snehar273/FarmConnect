@@ -1,14 +1,376 @@
-@{ ViewData["Title"] = "Farmer Dashboard"; }
-<h1 class="page-h">Farmer Dashboard</h1>
-<div class="stat-row">
-  <div class="stat reveal"><small>Active listings</small><b>@ViewBag.Active</b></div>
-  <div class="stat reveal"><small>New orders to review</small><b>@ViewBag.Pending</b></div>
-  <div class="stat reveal"><small>Completed orders</small><b>@ViewBag.Completed</b></div>
-  <div class="stat reveal"><small>Completed sales</small><b>₹@(((decimal)ViewBag.Sales).ToString("N2"))</b></div>
+
+@using System.Globalization
+@using FarmConnect.Models
+
+@{
+    ViewData["Title"] = "Farmer Dashboard";
+
+    var inv = CultureInfo.InvariantCulture;
+
+    int act = ViewBag.Active;
+    int pend = ViewBag.Pending;
+    int done = ViewBag.Completed;
+    int total = ViewBag.Total;
+    int rate = ViewBag.Rate;
+
+    decimal sales = ViewBag.Sales;
+    decimal week = ViewBag.Week;
+
+    var review = (List<Order>)ViewBag.ToReview;
+    var recent = (List<Order>)ViewBag.Recent;
+    var stock = (List<Listing>)ViewBag.Stock;
+
+    string Col(OrderStatus s) => s switch
+    {
+        OrderStatus.Placed => "var(--amber)",
+        OrderStatus.Accepted => "var(--p2)",
+        OrderStatus.Completed => "var(--p)",
+        _ => "var(--terra)"
+    };
+
+    var tips = new[]
+    {
+        "📸|Show your harvest|Clear photos make your listings easier to trust and sell faster.",
+        "🎯|Keep minimum orders realistic|A lower minimum lets more buyers place an order.",
+        "📈|Check price history first|Compare markets in Price History before you set your price.",
+        "🧾|Record your selling costs|Add transport and packing costs in Earnings to see true net proceeds.",
+        "⚡|Respond quickly|Accept or reject new orders promptly. Buyers see the status change live."
+    };
+}
+
+<link rel="stylesheet" href="~/css/pages.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/viz.css" asp-append-version="true" />
+
+<div class="kgrid">
+
+    <div class="kcard reveal" data-tilt style="--c:var(--p2)">
+        <span class="orb">🧺</span>
+        <small>Active listings</small>
+        <b data-count="@act">0</b>
+        <i class="kline"></i>
+    </div>
+
+    <div class="kcard reveal" data-tilt style="--c:var(--amber)">
+        <span class="orb">📝</span>
+        <small>Orders to review</small>
+        <b data-count="@pend">0</b>
+        <i class="kline"></i>
+    </div>
+
+    <div class="kcard reveal" data-tilt style="--c:var(--p)">
+        <span class="orb">🎉</span>
+        <small>Completed orders</small>
+        <b data-count="@done">0</b>
+        <i class="kline"></i>
+    </div>
+
+    <div class="kcard reveal" data-tilt style="--c:var(--terra)">
+        <span class="orb">💰</span>
+        <small>Completed sales</small>
+
+        <b data-count="@sales.ToString(inv)"
+           data-dec="2"
+           data-pre="₹">₹0</b>
+
+        <span class="sub">
+            ₹@week.ToString("N0") in the last 7 days
+        </span>
+
+        <i class="kline"></i>
+    </div>
+
 </div>
-<div class="feat">
-  <a class="reveal" asp-controller="Listings" asp-action="Create"><span class="ic">➕</span><h3>Add produce</h3><p>Publish a new listing for buyers.</p></a>
-  <a class="reveal" asp-controller="Listings" asp-action="Index"><span class="ic">🧺</span><h3>My listings</h3><p>Edit, deactivate and track stock.</p></a>
-  <a class="reveal" asp-controller="Orders" asp-action="Index"><span class="ic">📦</span><h3>Orders received</h3><p>Accept, reject or complete orders.</p></a>
-  <a class="reveal" asp-controller="Earnings" asp-action="Index"><span class="ic">💰</span><h3>Earnings report</h3><p>Revenue, costs and net proceeds.</p></a>
+
+<div class="dg">
+
+    <div class="cb c8 reveal">
+        <h3>Your last 7 days</h3>
+        <p class="cap">
+            Bars: sales from completed orders (₹). Line: orders received per day.
+        </p>
+
+        <div class="cv tall">
+            <canvas id="cTrend"
+                    role="img"
+                    aria-label="Sales and orders for the last 7 days"></canvas>
+        </div>
+    </div>
+
+    <div class="cb c4 reveal">
+        <h3>Completion rate</h3>
+        <p class="cap">
+            Completed orders out of all orders received.
+        </p>
+
+        <div class="gwrap">
+
+            <svg class="gauge"
+                 viewBox="0 0 120 120"
+                 data-v="@rate"
+                 role="img"
+                 aria-label="Completion rate @rate percent">
+
+                <circle class="bg" cx="60" cy="60" r="50" />
+                <circle class="fg" cx="60" cy="60" r="50" pathLength="100" />
+
+                <text x="60" y="68" text-anchor="middle">@rate%</text>
+            </svg>
+
+            <div>
+                <b class="serif fs-3">@done</b>
+                <span class="text-muted">of @total orders</span>
+
+                <div class="small text-muted mt-1">
+                    @(total == 0
+                        ? "Your first order will start this meter."
+                        : rate >= 60
+                            ? "Great job closing orders!"
+                            : "Accept and complete orders to raise this.")
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="cb c6 reveal">
+        <h3>Needs your action</h3>
+        <p class="cap">New orders waiting for your decision.</p>
+
+        @if (review.Any())
+        {
+            foreach (var o in review)
+            {
+                var it = o.Items.First();
+
+                <div class="arow">
+
+                    <span class="dotp"></span>
+
+                    <div class="am">
+                        <b>@o.OrderNo</b> · @o.Buyer.FullName
+
+                        <div class="small text-muted">
+                            @it.ProduceName ·
+                            @it.Quantity.ToString("0.##") @it.Unit ·
+                            ₹@o.TotalAmount.ToString("N0")
+                        </div>
+                    </div>
+
+                    <div class="text-nowrap">
+
+                        <form method="post"
+                              action="@Url.Action("UpdateStatus", "Orders")"
+                              class="d-inline">
+
+                            @Html.AntiForgeryToken()
+
+                            <input type="hidden" name="id" value="@o.Id" />
+                            <input type="hidden" name="status" value="Accepted" />
+
+                            <button type="submit" class="btn-sm-fc">
+                                Accept
+                            </button>
+
+                        </form>
+
+                        <form method="post"
+                              action="@Url.Action("UpdateStatus", "Orders")"
+                              class="d-inline">
+
+                            @Html.AntiForgeryToken()
+
+                            <input type="hidden" name="id" value="@o.Id" />
+                            <input type="hidden" name="status" value="Rejected" />
+
+                            <button type="submit" class="btn-sm-fc danger">
+                                Reject
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                </div>
+            }
+        }
+        else
+        {
+            <div class="allgood">
+                <span>🎉</span>
+                <p>You are all caught up. New orders will appear here.</p>
+            </div>
+        }
+    </div>
+
+    <div class="cb c6 reveal">
+        <h3>Stock health</h3>
+        <p class="cap">How much of each listing is still available.</p>
+
+        @foreach (var l in stock)
+        {
+            var tot = l.QuantityAvailable + l.QuantitySold;
+
+            var pct = tot > 0
+                ? (int)Math.Round(l.QuantityAvailable / tot * 100)
+                : 0;
+
+            <div class="srow @(pct < 25 ? "low" : "")">
+
+                <div class="lab">
+
+                    <span>
+                        @l.Produce.Emoji
+                        <b>@l.Produce.Name</b>
+                        <span class="st st-@l.Status">@l.Status</span>
+                    </span>
+
+                    <span>
+                        @l.QuantityAvailable.ToString("0.##") @l.Unit left
+                    </span>
+
+                </div>
+
+                <div class="sb">
+                    <i style="--w:@pct%"></i>
+                </div>
+
+            </div>
+        }
+
+        @if (!stock.Any())
+        {
+            <div class="allgood">
+                <span>🌱</span>
+                <p>No listings yet. Add your first produce below.</p>
+            </div>
+        }
+    </div>
+
+    <div class="cb c7 reveal">
+        <h3>Recent activity</h3>
+        <p class="cap">Your latest orders and their status.</p>
+
+        <ol class="tline">
+
+            @for (var i = 0; i < recent.Count; i++)
+            {
+                var o = recent[i];
+
+                <li style="--i:@i;--c:@Col(o.Status)">
+
+                    <b>@o.OrderNo</b>
+
+                    <span class="st st-@o.Status">
+                        @o.Status
+                    </span>
+
+                    <div class="small text-muted">
+                        @o.Buyer.FullName ·
+                        ₹@o.TotalAmount.ToString("N0") ·
+                        @o.CreatedAt.ToString("dd MMM, HH:mm")
+                    </div>
+
+                </li>
+            }
+
+        </ol>
+
+        @if (!recent.Any())
+        {
+            <div class="allgood">
+                <span>📭</span>
+                <p>No orders yet.</p>
+            </div>
+        }
+    </div>
+
+    <div class="cb c5 reveal">
+        <h3>Order mix</h3>
+        <p class="cap">All your orders by status.</p>
+
+        <div class="cv">
+            <canvas id="cMix"
+                    role="img"
+                    aria-label="Orders by status"></canvas>
+        </div>
+    </div>
+
+    <div class="c12 reveal">
+        <partial name="_Tips" model="tips" />
+    </div>
+
 </div>
+
+<h2 class="sec h2x reveal">Quick actions</h2>
+
+<div class="qas">
+
+    <a class="qa reveal" asp-controller="Listings" asp-action="Create">
+        <span class="ar">→</span>
+        <span class="e">➕</span>
+        <h3>Add produce</h3>
+        <p>Publish a new listing for buyers.</p>
+    </a>
+
+    <a class="qa reveal" asp-controller="Listings" asp-action="Index">
+        <span class="ar">→</span>
+        <span class="e">🧺</span>
+        <h3>My listings</h3>
+        <p>Edit, deactivate and track stock.</p>
+    </a>
+
+    <a class="qa reveal" asp-controller="Orders" asp-action="Index">
+        <span class="ar">→</span>
+        <span class="e">📦</span>
+        <h3>Orders received</h3>
+        <p>Accept, reject or complete orders.</p>
+    </a>
+
+    <a class="qa reveal" asp-controller="Earnings" asp-action="Index">
+        <span class="ar">→</span>
+        <span class="e">💰</span>
+        <h3>Earnings report</h3>
+        <p>Revenue, costs and net proceeds.</p>
+    </a>
+
+    <a class="qa reveal" asp-controller="Price" asp-action="Index">
+        <span class="ar">→</span>
+        <span class="e">📈</span>
+        <h3>Price history</h3>
+        <p>See market price trends.</p>
+    </a>
+
+</div>
+
+@section Scripts {
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+    <script src="~/js/pages.js" asp-append-version="true"></script>
+
+    <script src="~/js/viz.js" asp-append-version="true"></script>
+
+    <script>
+        var D = @Html.Raw((string)ViewBag.Dash);
+
+        fcPage({
+            combo: [{
+                id: 'cTrend',
+                labels: D.labels,
+                bar: {
+                    label: 'Sales (₹)',
+                    data: D.sales
+                },
+                line: {
+                    label: 'Orders received',
+                    data: D.placed
+                }
+            }],
+
+            donut: [{
+                id: 'cMix',
+                d: D.status
+            }]
+        });
+    </script>
+}
